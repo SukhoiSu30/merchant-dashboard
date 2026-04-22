@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard, ShoppingCart, ArrowLeftRight, RotateCcw, Users,
   Settings, Shield, Bell, FileText, CreditCard, Webhook, ChevronDown,
-  ChevronRight, Zap, AlertTriangle, Upload
+  ChevronRight, Zap, AlertTriangle, Upload, Percent, GitBranch
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -28,6 +28,8 @@ const navGroups = [
     label: 'PG Control',
     items: [
       { path: '/gateways', icon: Zap, label: 'Gateways', module: 'gateways' },
+      { path: '/routing', icon: GitBranch, label: 'Routing & Outages', module: 'gateways' },
+      { path: '/surcharge', icon: Percent, label: 'Surcharge', module: 'gateways' },
       { path: '/batch', icon: Upload, label: 'Batch Operations', module: 'batch_operations' },
     ],
   },

@@ -59,6 +59,8 @@ app.use('/api/gateways', require('./routes/gateways'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/batch', require('./routes/batch'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/surcharge', require('./routes/surcharge'));
+app.use('/api/routing', require('./routes/routing'));
 
 // Health check
 app.get('/api/health', async (req, res) => {

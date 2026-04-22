@@ -145,4 +145,25 @@ export const settingsAPI = {
   auditLog: (params) => api.get('/settings/audit-log', { params }),
 };
 
+// Surcharge API
+export const surchargeAPI = {
+  list: () => api.get('/surcharge'),
+  calculate: (params) => api.get('/surcharge/calculate', { params }),
+  create: (data) => api.post('/surcharge', data),
+  update: (id, data) => api.put(`/surcharge/${id}`, data),
+  delete: (id) => api.delete(`/surcharge/${id}`),
+};
+
+// Routing API
+export const routingAPI = {
+  health: () => api.get('/routing/health'),
+  priority: () => api.get('/routing/priority'),
+  updatePriority: (data) => api.put('/routing/priority', data),
+  createRule: (data) => api.post('/routing/rules', data),
+  updateSmart: (data) => api.put('/routing/smart', data),
+  outages: () => api.get('/routing/outages'),
+  createOutage: (data) => api.post('/routing/outages', data),
+  resolveOutage: (id, data) => api.put(`/routing/outages/${id}/resolve`, data),
+};
+
 export default api;

@@ -14,6 +14,8 @@ import MandatesPage from './pages/MandatesPage';
 import GatewaysPage from './pages/GatewaysPage';
 import UsersPage from './pages/UsersPage';
 import BatchOperationsPage from './pages/BatchOperationsPage';
+import SurchargePage from './pages/SurchargePage';
+import RoutingPage from './pages/RoutingPage';
 import SettingsPage from './pages/SettingsPage';
 import SecurityPage from './pages/SecurityPage';
 import PlaceholderPage from './pages/PlaceholderPage';
@@ -53,6 +55,8 @@ function DashboardLayout() {
             <Route path="/mandates" element={<MandatesPage />} />
             <Route path="/gateways" element={<GatewaysPage />} />
             <Route path="/batch" element={<BatchOperationsPage />} />
+            <Route path="/surcharge" element={<SurchargePage />} />
+            <Route path="/routing" element={<RoutingPage />} />
             <Route path="/alerts" element={<PlaceholderPage title="Monitoring Alerts" description="Alert configuration coming in Phase 6" />} />
             <Route path="/reports" element={<PlaceholderPage title="Reports" description="Report generation coming in Phase 6" />} />
             <Route path="/settings" element={<SettingsPage />} />
