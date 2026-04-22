@@ -8,6 +8,10 @@ import DashboardPage from './pages/DashboardPage';
 import OrdersPage from './pages/OrdersPage';
 import OrderDetailPage from './pages/OrderDetailPage';
 import RefundsPage from './pages/RefundsPage';
+import TransactionsPage from './pages/TransactionsPage';
+import ChargebacksPage from './pages/ChargebacksPage';
+import MandatesPage from './pages/MandatesPage';
+import GatewaysPage from './pages/GatewaysPage';
 import UsersPage from './pages/UsersPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 
@@ -41,10 +45,10 @@ function DashboardLayout() {
             <Route path="/orders/:id" element={<OrderDetailPage />} />
             <Route path="/refunds" element={<RefundsPage />} />
             <Route path="/users" element={<UsersPage />} />
-            <Route path="/transactions" element={<PlaceholderPage title="Transactions" description="Transaction management coming in Phase 2" />} />
-            <Route path="/chargebacks" element={<PlaceholderPage title="Chargebacks" description="Chargeback management coming in Phase 2" />} />
-            <Route path="/mandates" element={<PlaceholderPage title="Mandates" description="Mandate management coming in Phase 4" />} />
-            <Route path="/gateways" element={<PlaceholderPage title="Gateway Configuration" description="PG Control Centre coming in Phase 3" />} />
+            <Route path="/transactions" element={<TransactionsPage />} />
+            <Route path="/chargebacks" element={<ChargebacksPage />} />
+            <Route path="/mandates" element={<MandatesPage />} />
+            <Route path="/gateways" element={<GatewaysPage />} />
             <Route path="/alerts" element={<PlaceholderPage title="Monitoring Alerts" description="Alert configuration coming in Phase 6" />} />
             <Route path="/reports" element={<PlaceholderPage title="Reports" description="Report generation coming in Phase 6" />} />
             <Route path="/settings" element={<PlaceholderPage title="Settings" description="General settings coming in Phase 5" />} />

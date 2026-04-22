@@ -66,11 +66,45 @@ export const ordersAPI = {
   get: (id) => api.get(`/orders/${id}`),
 };
 
+// Transactions API
+export const transactionsAPI = {
+  list: (params) => api.get('/transactions', { params }),
+  stats: (period) => api.get(`/transactions/stats?period=${period || '7d'}`),
+  get: (id) => api.get(`/transactions/${id}`),
+};
+
 // Refunds API
 export const refundsAPI = {
   list: (params) => api.get('/refunds', { params }),
   create: (data) => api.post('/refunds', data),
   get: (id) => api.get(`/refunds/${id}`),
+};
+
+// Chargebacks API
+export const chargebacksAPI = {
+  list: (params) => api.get('/chargebacks', { params }),
+  stats: () => api.get('/chargebacks/stats'),
+  get: (id) => api.get(`/chargebacks/${id}`),
+  updateStatus: (id, data) => api.put(`/chargebacks/${id}/status`, data),
+};
+
+// Mandates API
+export const mandatesAPI = {
+  list: (params) => api.get('/mandates', { params }),
+  stats: () => api.get('/mandates/stats'),
+  get: (id) => api.get(`/mandates/${id}`),
+  pause: (id) => api.put(`/mandates/${id}/pause`),
+  resume: (id) => api.put(`/mandates/${id}/resume`),
+  revoke: (id) => api.put(`/mandates/${id}/revoke`),
+};
+
+// Gateways API
+export const gatewaysAPI = {
+  list: () => api.get('/gateways'),
+  get: (id) => api.get(`/gateways/${id}`),
+  create: (data) => api.post('/gateways', data),
+  update: (id, data) => api.put(`/gateways/${id}`, data),
+  toggle: (id) => api.put(`/gateways/${id}/toggle`),
 };
 
 // Users API

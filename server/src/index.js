@@ -52,6 +52,10 @@ app.use('/api/auth', loginLimiter, require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/refunds', require('./routes/refunds'));
+app.use('/api/transactions', require('./routes/transactions'));
+app.use('/api/chargebacks', require('./routes/chargebacks'));
+app.use('/api/mandates', require('./routes/mandates'));
+app.use('/api/gateways', require('./routes/gateways'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 
 // Health check
