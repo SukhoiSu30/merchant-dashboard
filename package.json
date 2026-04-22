@@ -1,0 +1,19 @@
+{
+  "name": "juspay-merchant-dashboard",
+  "version": "1.0.0",
+  "description": "Production Merchant Dashboard - Juspay Unified Dashboard Clone",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "seed": "cd server && npm run seed",
+    "render:build": "cd client && npm install && npm run build && cd ../server && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

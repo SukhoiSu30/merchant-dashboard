@@ -1,0 +1,87 @@
+import axios from 'axios';
+
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
+const api = axios.create({
+  baseURL: `${API_BASE}/api`,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+// Request interceptor — attach access token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('accessToken');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+// Response interceptor — handle token refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && error.response?.data?.code === 'TOKEN_EXPIRED' && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        const { data } = await axios.post(`${API_BASE}/api/auth/refresh`, { refreshToken });
+        localStorage.setItem('accessToken', data.accessToken);
+        localStorage.setItem('refreshToken', data.refreshToken);
+        originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Auth API
+export const authAPI = {
+  login: (data) => api.post('/auth/login', data),
+  verify2FA: (data) => api.post('/auth/verify-2fa', data),
+  refresh: (data) => api.post('/auth/refresh', data),
+  me: () => api.get('/auth/me'),
+  setup2FA: () => api.post('/auth/setup-2fa'),
+  enable2FA: (data) => api.post('/auth/enable-2fa', data),
+  disable2FA: (data) => api.post('/auth/disable-2fa', data),
+  changePassword: (data) => api.post('/auth/change-password', data),
+};
+
+// Dashboard API
+export const dashboardAPI = {
+  overview: (period) => api.get(`/dashboard/overview?period=${period || '7d'}`),
+  live: () => api.get('/dashboard/live'),
+};
+
+// Orders API
+export const ordersAPI = {
+  list: (params) => api.get('/orders', { params }),
+  stats: (period) => api.get(`/orders/stats?period=${period || '7d'}`),
+  get: (id) => api.get(`/orders/${id}`),
+};
+
+// Refunds API
+export const refundsAPI = {
+  list: (params) => api.get('/refunds', { params }),
+  create: (data) => api.post('/refunds', data),
+  get: (id) => api.get(`/refunds/${id}`),
+};
+
+// Users API
+export const usersAPI = {
+  list: (params) => api.get('/users', { params }),
+  get: (id) => api.get(`/users/${id}`),
+  create: (data) => api.post('/users', data),
+  update: (id, data) => api.put(`/users/${id}`, data),
+  lock: (id) => api.post(`/users/${id}/lock`),
+  unlock: (id) => api.post(`/users/${id}/unlock`),
+  roles: () => api.get('/users/roles/list'),
+};
+
+export default api;
