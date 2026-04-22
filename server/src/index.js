@@ -57,6 +57,8 @@ app.use('/api/chargebacks', require('./routes/chargebacks'));
 app.use('/api/mandates', require('./routes/mandates'));
 app.use('/api/gateways', require('./routes/gateways'));
 app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/batch', require('./routes/batch'));
+app.use('/api/settings', require('./routes/settings'));
 
 // Health check
 app.get('/api/health', async (req, res) => {

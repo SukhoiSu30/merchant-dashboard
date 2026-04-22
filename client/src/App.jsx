@@ -13,6 +13,9 @@ import ChargebacksPage from './pages/ChargebacksPage';
 import MandatesPage from './pages/MandatesPage';
 import GatewaysPage from './pages/GatewaysPage';
 import UsersPage from './pages/UsersPage';
+import BatchOperationsPage from './pages/BatchOperationsPage';
+import SettingsPage from './pages/SettingsPage';
+import SecurityPage from './pages/SecurityPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 
 function ProtectedRoute({ children }) {
@@ -49,10 +52,11 @@ function DashboardLayout() {
             <Route path="/chargebacks" element={<ChargebacksPage />} />
             <Route path="/mandates" element={<MandatesPage />} />
             <Route path="/gateways" element={<GatewaysPage />} />
+            <Route path="/batch" element={<BatchOperationsPage />} />
             <Route path="/alerts" element={<PlaceholderPage title="Monitoring Alerts" description="Alert configuration coming in Phase 6" />} />
             <Route path="/reports" element={<PlaceholderPage title="Reports" description="Report generation coming in Phase 6" />} />
-            <Route path="/settings" element={<PlaceholderPage title="Settings" description="General settings coming in Phase 5" />} />
-            <Route path="/security" element={<PlaceholderPage title="Security" description="Security settings coming in Phase 5" />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/security" element={<SecurityPage />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>

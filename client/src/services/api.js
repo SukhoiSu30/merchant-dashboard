@@ -118,4 +118,31 @@ export const usersAPI = {
   roles: () => api.get('/users/roles/list'),
 };
 
+// Batch Operations API
+export const batchAPI = {
+  list: (params) => api.get('/batch', { params }),
+  get: (id) => api.get(`/batch/${id}`),
+  upload: (data) => api.post('/batch/upload', data),
+  download: (id) => api.get(`/batch/${id}/download`),
+  types: () => api.get('/batch/types/list'),
+};
+
+// Settings API
+export const settingsAPI = {
+  getGeneral: () => api.get('/settings/general'),
+  updateGeneral: (data) => api.put('/settings/general', data),
+  getSecurity: () => api.get('/settings/security'),
+  updateSecurity: (data) => api.put('/settings/security', data),
+  // Webhooks
+  listWebhooks: () => api.get('/settings/webhooks'),
+  createWebhook: (data) => api.post('/settings/webhooks', data),
+  updateWebhook: (id, data) => api.put(`/settings/webhooks/${id}`, data),
+  deleteWebhook: (id) => api.delete(`/settings/webhooks/${id}`),
+  testWebhook: (id) => api.post(`/settings/webhooks/${id}/test`),
+  // API Keys
+  listApiKeys: () => api.get('/settings/api-keys'),
+  // Audit Log
+  auditLog: (params) => api.get('/settings/audit-log', { params }),
+};
+
 export default api;
