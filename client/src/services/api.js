@@ -166,4 +166,24 @@ export const routingAPI = {
   resolveOutage: (id, data) => api.put(`/routing/outages/${id}/resolve`, data),
 };
 
+// Alerts API
+export const alertsAPI = {
+  rules: () => api.get('/alerts/rules'),
+  createRule: (data) => api.post('/alerts/rules', data),
+  updateRule: (id, data) => api.put(`/alerts/rules/${id}`, data),
+  deleteRule: (id) => api.delete(`/alerts/rules/${id}`),
+  history: (params) => api.get('/alerts/history', { params }),
+  acknowledge: (id) => api.put(`/alerts/history/${id}/acknowledge`),
+  types: () => api.get('/alerts/types'),
+};
+
+// Reports API
+export const reportsAPI = {
+  templates: () => api.get('/reports/templates'),
+  generate: (data) => api.post('/reports/generate', data),
+  history: () => api.get('/reports/history'),
+  scheduled: () => api.get('/reports/scheduled'),
+  createSchedule: (data) => api.post('/reports/schedule', data),
+};
+
 export default api;

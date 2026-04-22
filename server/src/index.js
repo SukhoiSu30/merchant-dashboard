@@ -61,6 +61,8 @@ app.use('/api/batch', require('./routes/batch'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/surcharge', require('./routes/surcharge'));
 app.use('/api/routing', require('./routes/routing'));
+app.use('/api/alerts', require('./routes/alerts'));
+app.use('/api/reports', require('./routes/reports'));
 
 // Health check
 app.get('/api/health', async (req, res) => {
