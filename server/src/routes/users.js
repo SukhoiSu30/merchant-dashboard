@@ -245,8 +245,15 @@ router.delete('/:id', authenticate, requirePermission('users', 'READ_WRITE'), as
       }
     }
 
-    // Delete related tokens first
+    // Clear all foreign key references before deleting
     await query('DELETE FROM password_setup_tokens WHERE user_id = $1', [req.params.id]);
+    await query('DELETE FROM audit_logs WHERE user_id = $1', [req.params.id]);
+    await query('UPDATE users SET created_by = NULL WHERE created_by = $1', [req.params.id]);
+    await query('UPDATE refunds SET initiated_by = NULL WHERE initiated_by = $1', [req.params.id]);
+    await query('UPDATE refunds SET approved_by = NULL WHERE approved_by = $1', [req.params.id]);
+    await query('UPDATE batch_operations SET uploaded_by = NULL WHERE uploaded_by = $1', [req.params.id]);
+    await query('UPDATE batch_operations SET approved_by = NULL WHERE approved_by = $1', [req.params.id]);
+    await query('UPDATE monitoring_alerts SET created_by = NULL WHERE created_by = $1', [req.params.id]);
     // Delete user
     await query('DELETE FROM users WHERE id = $1', [req.params.id]);
 
