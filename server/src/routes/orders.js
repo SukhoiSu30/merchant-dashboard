@@ -177,11 +177,13 @@ router.get('/:id', authenticate, requirePermission('orders'), async (req, res, n
   try {
     const orderId = req.params.id;
 
+    // Check if it's a UUID or an order_id string
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
     const orderResult = await query(
       `SELECT o.*, m.name as merchant_name, m.merchant_id as merchant_code
        FROM orders o
        LEFT JOIN merchants m ON o.merchant_id = m.id
-       WHERE o.id = $1 OR o.order_id = $1`,
+       WHERE ${isUUID ? 'o.id = $1' : 'o.order_id = $1'}`,
       [orderId]
     );
 
