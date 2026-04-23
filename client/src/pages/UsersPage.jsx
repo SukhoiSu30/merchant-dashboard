@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { usersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Search, Plus, X, Lock, Unlock, Edit2, Shield, RefreshCw, ChevronLeft, ChevronRight, Download, Copy, Check } from 'lucide-react';
+import { Search, Plus, X, Lock, Unlock, Edit2, Shield, RefreshCw, ChevronLeft, ChevronRight, Download, Copy, Check, Trash2 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
@@ -100,10 +100,11 @@ export default function UsersPage() {
     setConfirmModal({ ...confirmModal, loading: true });
     try {
       const { userId, action } = confirmModal;
-      if (action === 'lock') await usersAPI.lock(userId);
+      if (action === 'delete') await usersAPI.delete(userId);
+      else if (action === 'lock') await usersAPI.lock(userId);
       else if (action === 'unlock') await usersAPI.unlock(userId);
       else await usersAPI.update(userId, { status: action });
-      toast.success('User status updated');
+      toast.success(action === 'delete' ? 'User deleted successfully' : 'User status updated');
       fetchUsers(pagination.page);
       setConfirmModal({ open: false, userId: null, userName: '', action: '', loading: false });
     } catch (err) {
@@ -269,6 +270,10 @@ export default function UsersPage() {
                               <Edit2 size={14} />
                             </button>
                           )}
+                          <button onClick={() => handleStatusChange(u.id, `${u.first_name} ${u.last_name}`, 'delete')} title="Delete user"
+                            className="p-1.5 text-gray-400 hover:text-danger-600 hover:bg-danger-50 rounded">
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                       </td>
                     )}
@@ -347,11 +352,11 @@ export default function UsersPage() {
         open={confirmModal.open}
         onClose={() => setConfirmModal({ open: false, userId: null, userName: '', action: '', loading: false })}
         onConfirm={handleConfirmStatusChange}
-        title={confirmModal.action === 'lock' ? 'Lock User' : confirmModal.action === 'unlock' ? 'Unlock User' : confirmModal.action === 'INACTIVE' ? 'Disable User' : 'Enable User'}
-        message={`Are you sure you want to ${confirmModal.action === 'lock' ? 'lock' : confirmModal.action === 'unlock' ? 'unlock' : confirmModal.action === 'INACTIVE' ? 'disable' : 'enable'} ${confirmModal.userName}?`}
-        confirmText={confirmModal.action === 'lock' ? 'Lock' : confirmModal.action === 'unlock' ? 'Unlock' : confirmModal.action === 'INACTIVE' ? 'Disable' : 'Enable'}
+        title={confirmModal.action === 'delete' ? 'Delete User' : confirmModal.action === 'lock' ? 'Lock User' : confirmModal.action === 'unlock' ? 'Unlock User' : confirmModal.action === 'INACTIVE' ? 'Disable User' : 'Enable User'}
+        message={confirmModal.action === 'delete' ? `Are you sure you want to permanently delete ${confirmModal.userName}? This cannot be undone.` : `Are you sure you want to ${confirmModal.action === 'lock' ? 'lock' : confirmModal.action === 'unlock' ? 'unlock' : confirmModal.action === 'INACTIVE' ? 'disable' : 'enable'} ${confirmModal.userName}?`}
+        confirmText={confirmModal.action === 'delete' ? 'Delete' : confirmModal.action === 'lock' ? 'Lock' : confirmModal.action === 'unlock' ? 'Unlock' : confirmModal.action === 'INACTIVE' ? 'Disable' : 'Enable'}
         cancelText="Cancel"
-        variant={confirmModal.action === 'INACTIVE' ? 'danger' : 'warning'}
+        variant={confirmModal.action === 'delete' || confirmModal.action === 'INACTIVE' ? 'danger' : 'warning'}
         loading={confirmModal.loading}
       />
     </div>

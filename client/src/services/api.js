@@ -117,6 +117,7 @@ export const usersAPI = {
   update: (id, data) => api.put(`/users/${id}`, data),
   lock: (id) => api.post(`/users/${id}/lock`),
   unlock: (id) => api.post(`/users/${id}/unlock`),
+  delete: (id) => api.delete(`/users/${id}`),
   roles: () => api.get('/users/roles/list'),
 };
 

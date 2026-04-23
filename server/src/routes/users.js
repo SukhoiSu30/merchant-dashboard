@@ -225,4 +225,41 @@ router.get('/roles/list', authenticate, async (req, res, next) => {
   }
 });
 
+// DELETE /api/users/:id - Delete user
+router.delete('/:id', authenticate, requirePermission('users', 'READ_WRITE'), async (req, res, next) => {
+  try {
+    // Prevent self-deletion
+    if (req.params.id === req.user.id) {
+      return res.status(400).json({ error: 'You cannot delete your own account' });
+    }
+
+    const userResult = await query('SELECT id, email, role_id FROM users WHERE id = $1', [req.params.id]);
+    if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+
+    // Prevent deleting system admin
+    const roleResult = await query('SELECT name, is_system FROM roles WHERE id = $1', [userResult.rows[0].role_id]);
+    if (roleResult.rows[0]?.is_system && roleResult.rows[0]?.name === 'Admin') {
+      const adminCount = await query('SELECT COUNT(*) FROM users u JOIN roles r ON u.role_id = r.id WHERE r.name = $1 AND u.status = $2', ['Admin', 'ACTIVE']);
+      if (parseInt(adminCount.rows[0].count) <= 1) {
+        return res.status(400).json({ error: 'Cannot delete the last admin user' });
+      }
+    }
+
+    // Delete related tokens first
+    await query('DELETE FROM password_setup_tokens WHERE user_id = $1', [req.params.id]);
+    // Delete user
+    await query('DELETE FROM users WHERE id = $1', [req.params.id]);
+
+    // Audit log
+    await query(
+      'INSERT INTO audit_logs (user_id, action, module, entity_type, entity_id, description, ip_address) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [req.user.id, 'DELETE_USER', 'USERS', 'user', req.params.id, `Deleted user ${userResult.rows[0].email}`, req.ip]
+    );
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
