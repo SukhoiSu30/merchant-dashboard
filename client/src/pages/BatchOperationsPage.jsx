@@ -4,9 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import {
   Search, RefreshCw, ChevronLeft, ChevronRight, Upload, Download,
-  Eye, X, FileText, CheckCircle, XCircle, Clock, AlertTriangle
+  Eye, X, FileText, CheckCircle, XCircle, Clock, AlertTriangle, Trash2
 } from 'lucide-react';
 
 function StatusBadge({ status }) {
@@ -41,6 +42,9 @@ export default function BatchOperationsPage() {
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  // Delete confirmation
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, batch: null, loading: false });
 
   const fetchBatches = async (page = 1) => {
     setLoading(true);
@@ -130,6 +134,19 @@ export default function BatchOperationsPage() {
     } catch (err) { toast.error('Failed to download batch results'); }
   };
 
+  const handleDeleteBatch = async () => {
+    setDeleteConfirm(d => ({ ...d, loading: true }));
+    try {
+      await batchAPI.delete(deleteConfirm.batch.id);
+      toast.success('Batch operation deleted');
+      setDeleteConfirm({ open: false, batch: null, loading: false });
+      fetchBatches(pagination.page);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete batch');
+      setDeleteConfirm(d => ({ ...d, loading: false }));
+    }
+  };
+
   const closeUpload = () => {
     setShowUpload(false);
     setUploadForm({ batch_type: '', file_name: '', description: '' });
@@ -214,7 +231,7 @@ export default function BatchOperationsPage() {
               ) : (
                 batches.map((b) => (
                   <tr key={b.id} className="hover:bg-gray-50">
-                    <td className="px-5 py-3 text-sm font-mono text-primary-600">{b.batch_id}</td>
+                    <td className="px-5 py-3 text-sm font-mono text-primary-600 cursor-pointer hover:underline" onClick={() => openDetail(b)}>{b.batch_id}</td>
                     <td className="px-5 py-3">
                       <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
                         {b.batch_type?.replace('BATCH_', '').replace(/_/g, ' ')}
@@ -239,6 +256,12 @@ export default function BatchOperationsPage() {
                           className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded">
                           <Download size={14} />
                         </button>
+                        {canWrite && (
+                          <button onClick={() => setDeleteConfirm({ open: true, batch: b, loading: false })} title="Delete batch"
+                            className="p-1.5 text-gray-400 hover:text-danger-600 hover:bg-danger-50 rounded">
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -498,6 +521,17 @@ export default function BatchOperationsPage() {
           </div>
         </div>
       )}
+      <ConfirmModal
+        open={deleteConfirm.open}
+        onClose={() => setDeleteConfirm({ open: false, batch: null, loading: false })}
+        onConfirm={handleDeleteBatch}
+        title="Delete Batch Operation"
+        message={`Are you sure you want to delete batch ${deleteConfirm.batch?.batch_id}? This will remove the batch record but won't undo processed items.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        loading={deleteConfirm.loading}
+      />
     </div>
   );
 }

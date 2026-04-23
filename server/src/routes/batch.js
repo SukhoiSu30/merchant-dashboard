@@ -245,6 +245,26 @@ router.get('/types/list', authenticate, async (req, res) => {
   res.json({ types });
 });
 
+// DELETE /api/batch/:id - Delete batch operation
+router.delete('/:id', authenticate, requirePermission('batch_operations', 'READ_WRITE'), async (req, res, next) => {
+  try {
+    const result = await query('SELECT * FROM batch_operations WHERE id = $1 OR batch_id = $1', [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Batch not found' });
+
+    const batch = result.rows[0];
+    await query('DELETE FROM batch_operations WHERE id = $1', [batch.id]);
+
+    await query(
+      'INSERT INTO audit_logs (user_id, action, module, entity_type, entity_id, description, ip_address) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [req.user.id, 'DELETE_BATCH', 'BATCH_OPERATIONS', 'batch', batch.batch_id, `Deleted batch ${batch.batch_id} (${batch.batch_type})`, req.ip]
+    );
+
+    res.json({ message: 'Batch operation deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 function validateBatchData(batchType, data) {
   const errors = [];
   const requiredFields = {

@@ -127,6 +127,7 @@ export const batchAPI = {
   get: (id) => api.get(`/batch/${id}`),
   upload: (data) => api.post('/batch/upload', data),
   download: (id) => api.get(`/batch/${id}/download`),
+  delete: (id) => api.delete(`/batch/${id}`),
   types: () => api.get('/batch/types/list'),
 };
 
