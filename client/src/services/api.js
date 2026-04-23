@@ -129,6 +129,7 @@ export const batchAPI = {
   download: (id) => api.get(`/batch/${id}/download`),
   delete: (id) => api.delete(`/batch/${id}`),
   types: () => api.get('/batch/types/list'),
+  template: (type) => api.get(`/batch/template/${type}`, { responseType: 'blob' }),
 };
 
 // Settings API

@@ -134,6 +134,21 @@ export default function BatchOperationsPage() {
     } catch (err) { toast.error('Failed to download batch results'); }
   };
 
+  const handleDownloadTemplate = async () => {
+    if (!uploadForm.batch_type) return toast.warning('Select a batch type first');
+    try {
+      const response = await batchAPI.template(uploadForm.batch_type);
+      const blob = new Blob([response.data], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${uploadForm.batch_type.toLowerCase()}_sample.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Template downloaded');
+    } catch (err) { toast.error('Failed to download template'); }
+  };
+
   const handleDeleteBatch = async () => {
     setDeleteConfirm(d => ({ ...d, loading: true }));
     try {
@@ -369,6 +384,10 @@ export default function BatchOperationsPage() {
                       {uploadForm.batch_type === 'BATCH_ORDER_DETAIL' && 'order_id'}
                       {uploadForm.batch_type === 'BATCH_SYNC' && 'order_id'}
                     </p>
+                    <button onClick={handleDownloadTemplate}
+                      className="mt-2 flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 transition-colors">
+                      <Download size={14} /> Download Sample CSV Template
+                    </button>
                   </div>
                 )}
 

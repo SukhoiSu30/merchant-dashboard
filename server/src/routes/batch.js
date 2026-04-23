@@ -249,6 +249,36 @@ router.get('/types/list', authenticate, async (req, res) => {
   res.json({ types });
 });
 
+// GET /api/batch/template/:type - Download sample CSV template
+router.get('/template/:type', authenticate, (req, res) => {
+  const templates = {
+    BATCH_REFUND: 'order_id,amount,reason\nORD_001,500,Customer request\nORD_002,1200,Defective product\nORD_003,800,Wrong item delivered',
+    BATCH_USERS: 'email,first_name,role\njohn@company.com,John,Operations Manager\nsarah@company.com,Sarah,Finance Analyst\nmike@company.com,Mike,Support Agent',
+    BATCH_MERCHANTS: 'merchant_id,name\nMID_NEW_001,Acme Corp\nMID_NEW_002,Beta Industries\nMID_NEW_003,Gamma Solutions',
+    BATCH_TRANSACTIONS: 'order_id\nORD_001\nORD_002\nORD_003\nORD_004\nORD_005',
+    BATCH_CHARGEBACKS: 'order_id,amount,reason\nORD_001,5000,Unauthorized transaction\nORD_002,2500,Product not received\nORD_003,1800,Not as described',
+    BATCH_MANDATE_CREATE: 'customer_id,amount,frequency\nCUST_001,499,MONTHLY\nCUST_002,999,MONTHLY\nCUST_003,199,WEEKLY',
+    BATCH_MANDATE_RETRY: 'order_id,mandate_id\nORD_001,MND_001\nORD_002,MND_002\nORD_003,MND_003',
+    BATCH_MANDATE_PAUSE: 'mandate_id\nMND_001\nMND_002\nMND_003',
+    BATCH_MANDATE_RESUME: 'mandate_id\nMND_001\nMND_002\nMND_003',
+    BATCH_MANDATE_REVOKE: 'mandate_id\nMND_001\nMND_002\nMND_003',
+    BATCH_VPA_DELETE: 'vpa_id\nuser@upi\nmerchant@ybl\npay.user@axl',
+    BATCH_CARD_DELETE: 'card_reference\nCARD_REF_001\nCARD_REF_002\nCARD_REF_003',
+    BATCH_CARD_TOKENIZE: 'card_number,expiry\n4111111111111111,12/2027\n5500000000000004,06/2028\n3782822463100005,09/2027',
+    BATCH_ORDER_DETAIL: 'order_id\nORD_001\nORD_002\nORD_003\nORD_004',
+    BATCH_SYNC: 'order_id\nORD_001\nORD_002\nORD_003',
+  };
+
+  const type = req.params.type.toUpperCase();
+  const csv = templates[type];
+  if (!csv) return res.status(404).json({ error: 'Unknown batch type' });
+
+  const filename = `${type.toLowerCase()}_sample.csv`;
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+  res.send(csv);
+});
+
 // DELETE /api/batch/:id - Delete batch operation
 router.delete('/:id', authenticate, requirePermission('batch_operations', 'READ_WRITE'), async (req, res, next) => {
   try {
