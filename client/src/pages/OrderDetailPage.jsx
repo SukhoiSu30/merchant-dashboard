@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ordersAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
-import { ArrowLeft, Copy, CheckCircle, XCircle, Clock, RefreshCw, CreditCard, Shield, FileText, Globe, DollarSign } from 'lucide-react';
+import { ArrowLeft, Copy, CheckCircle, XCircle, Clock, RefreshCw, CreditCard, Shield, FileText, Globe, DollarSign, Tag } from 'lucide-react';
 
 function StatusBadge({ status }) {
   const styles = {
@@ -105,6 +105,7 @@ export default function OrderDetailPage() {
     { id: 'audit', label: 'Audit Trail', icon: Clock },
     { id: 'webhooks', label: 'Webhooks', icon: Globe },
     { id: 'settlements', label: 'Settlements & Recon', icon: DollarSign },
+    { id: 'offers', label: 'Offers', icon: Tag },
   ];
 
   return (
@@ -387,6 +388,66 @@ export default function OrderDetailPage() {
               </div>
             </div>
           )}
+
+          {activeTab === 'offers' && (() => {
+            // Simulate offers based on order data
+            const hasOffer = order.status === 'CHARGED' && parseFloat(order.amount) > 500;
+            const offers = hasOffer ? [
+              {
+                name: parseFloat(order.amount) > 5000 ? 'Premium Checkout 15% Off' : 'Summer Sale 10% Off',
+                code: parseFloat(order.amount) > 5000 ? 'PREMIUM15' : 'SUMMER10',
+                discount: (parseFloat(order.amount) * (parseFloat(order.amount) > 5000 ? 0.15 : 0.10)).toFixed(2),
+                status: 'APPLIED',
+              },
+              ...(parseFloat(order.amount) > 10000 ? [{
+                name: 'Cashback Reward ₹200',
+                code: 'CASHBACK200',
+                discount: '200.00',
+                status: 'APPLIED',
+              }] : []),
+            ] : [];
+
+            return (
+              <div>
+                {offers.length > 0 ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-500">Offers and promotions applied to this order</p>
+                    <div className="space-y-3">
+                      {offers.map((offer, i) => (
+                        <div key={i} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-success-50 rounded-lg flex items-center justify-center">
+                              <Tag size={18} className="text-success-600" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{offer.name}</p>
+                              <div className="flex items-center gap-3 mt-0.5">
+                                <span className="text-xs font-mono text-primary-600 px-2 py-0.5 bg-primary-50 rounded">{offer.code}</span>
+                                <span className="text-xs text-gray-500">Discount: ₹{parseFloat(offer.discount).toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <span className="badge badge-success">{offer.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Total Discount Applied</span>
+                      <span className="text-sm font-bold text-success-600">
+                        - ₹{offers.reduce((sum, o) => sum + parseFloat(o.discount), 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Tag size={32} className="mx-auto text-gray-300 mb-3" />
+                    <p className="text-gray-500 font-medium">No offers applied</p>
+                    <p className="text-sm text-gray-400 mt-1">No promotions or discounts were used for this order</p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>
