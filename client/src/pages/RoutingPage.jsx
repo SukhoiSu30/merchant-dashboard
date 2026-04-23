@@ -79,19 +79,18 @@ export default function RoutingPage() {
         const { data } = await routingAPI.priority();
         // Build priority logic per payment method from gateway data
         const logic = {};
+        const allGateways = (data.gateways || []).sort((a, b) => (a.priority || 0) - (b.priority || 0));
         PAYMENT_METHODS.forEach(pm => {
-          logic[pm] = data.gateways
-            .filter(g => {
-              const methods = Array.isArray(g.payment_methods) ? g.payment_methods : JSON.parse(g.payment_methods || '[]');
-              return methods.includes(pm);
-            })
-            .sort((a, b) => a.priority - b.priority)
-            .map((g, i) => ({ gateway_id: g.id, gateway_name: g.gateway_name, priority: i + 1, enabled: g.is_active }));
-          // If no gateways match, show all gateways as options
-          if (logic[pm].length === 0) {
-            logic[pm] = data.gateways.sort((a, b) => a.priority - b.priority)
-              .map((g, i) => ({ gateway_id: g.id, gateway_name: g.gateway_name, priority: i + 1, enabled: g.is_active }));
-          }
+          // Filter gateways that support this payment method
+          const matching = allGateways.filter(g => {
+            try {
+              const methods = typeof g.payment_methods === 'string' ? JSON.parse(g.payment_methods) : (g.payment_methods || []);
+              return Array.isArray(methods) && methods.includes(pm);
+            } catch { return false; }
+          });
+          // Use matching gateways, or fall back to all gateways if none match
+          const source = matching.length > 0 ? matching : allGateways;
+          logic[pm] = source.map((g, i) => ({ gateway_id: g.id, gateway_name: g.gateway_name, priority: i + 1, enabled: g.is_active !== false }));
         });
         setPriorityLogic(logic);
       } else if (activeTab === 'priority' || activeTab === 'rules' || activeTab === 'smart') {
