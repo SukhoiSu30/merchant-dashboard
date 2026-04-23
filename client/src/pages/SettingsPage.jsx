@@ -43,7 +43,7 @@ export default function SettingsPage() {
   const [webhookConfigSaving, setWebhookConfigSaving] = useState(false);
   const [customHeaders, setCustomHeaders] = useState([
     { id: 1, name: 'X-Correlation-ID', value: 'auto-generated' },
-    { id: 2, name: 'X-Merchant-ID', value: 'MID_JUSPAY_001' },
+    { id: 2, name: 'X-Merchant-ID', value: 'MID_MERCHANT_001' },
   ]);
   const [showPassword, setShowPassword] = useState(false);
   const [eventSubscriptions, setEventSubscriptions] = useState({

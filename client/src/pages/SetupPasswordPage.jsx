@@ -127,9 +127,9 @@ export default function SetupPasswordPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-primary-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary-500/30">
-            <span className="text-white font-bold text-2xl">JP</span>
+            <span className="text-white font-bold text-2xl">MD</span>
           </div>
-          <h1 className="text-2xl font-bold text-white">JusPay Dashboard</h1>
+          <h1 className="text-2xl font-bold text-white">Merchant Dashboard</h1>
           <p className="text-blue-200 mt-1">Set Your Password</p>
         </div>
 

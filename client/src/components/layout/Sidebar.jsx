@@ -73,12 +73,12 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
       <div className="h-16 flex items-center justify-between px-4 border-b border-white/10 flex-shrink-0">
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center font-bold text-sm">JP</div>
-            <span className="font-semibold text-lg">JusPay</span>
+            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center font-bold text-sm">MD</div>
+            <span className="font-semibold text-lg">Merchant</span>
           </div>
         )}
         {collapsed && (
-          <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center font-bold text-sm mx-auto">JP</div>
+          <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center font-bold text-sm mx-auto">MD</div>
         )}
         {/* Mobile close button */}
         {mobileOpen && (
