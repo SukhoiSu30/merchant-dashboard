@@ -187,8 +187,7 @@ export default function RoutingPage() {
 
   const tabs = [
     { id: 'health', label: 'Gateway Health', icon: Activity },
-    { id: 'priority', label: 'Priority', icon: ArrowUpDown },
-    { id: 'priority-logic', label: 'Priority Logic', icon: Shield },
+    { id: 'priority-logic', label: 'Priority Logic', icon: ArrowUpDown },
     { id: 'rules', label: 'Routing Rules', icon: Shield },
     { id: 'smart', label: 'Smart Routing', icon: Zap },
     { id: 'outages', label: 'Outages', icon: AlertTriangle },
