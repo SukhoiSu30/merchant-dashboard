@@ -6,7 +6,7 @@ databases:
 
 services:
   - type: web
-    name: juspay-merchant-dashboard
+    name: unified-merchant-dashboard
     runtime: node
     plan: free
     buildCommand: cd client && npm install --include=dev && npm run build && cd ../server && npm install
