@@ -12,7 +12,7 @@ router.get('/priority', authenticate, requirePermission('gateways'), async (req,
   try {
     // Get gateways with current priority
     const result = await query(
-      `SELECT id, gateway_name, gateway_code, is_active, priority, payment_methods
+      `SELECT id, gateway_name, is_active, priority, payment_methods
        FROM gateways ORDER BY priority ASC`
     );
 
@@ -118,7 +118,7 @@ router.put('/smart', authenticate, requirePermission('gateways', 'READ_WRITE'), 
 // GET /api/routing/outages - List active and recent outages
 router.get('/outages', authenticate, requirePermission('gateways'), async (req, res, next) => {
   try {
-    const gateways = await query('SELECT id, gateway_name, gateway_code, is_active FROM gateways ORDER BY priority ASC');
+    const gateways = await query('SELECT id, gateway_name, is_active FROM gateways ORDER BY priority ASC');
 
     const outages = getSimulatedOutages();
 
@@ -199,7 +199,7 @@ router.put('/outages/:id/resolve', authenticate, requirePermission('gateways', '
 // GET /api/routing/health - Real-time gateway health
 router.get('/health', authenticate, requirePermission('gateways'), async (req, res, next) => {
   try {
-    const gateways = await query('SELECT id, gateway_name, gateway_code, is_active, priority FROM gateways ORDER BY priority ASC');
+    const gateways = await query('SELECT id, gateway_name, is_active, priority FROM gateways ORDER BY priority ASC');
 
     const health = gateways.rows.map(gw => {
       const successRate = gw.is_active ? (85 + Math.random() * 15).toFixed(1) : 0;
@@ -209,7 +209,7 @@ router.get('/health', authenticate, requirePermission('gateways'), async (req, r
       return {
         gateway_id: gw.id,
         gateway_name: gw.gateway_name,
-        gateway_code: gw.gateway_code,
+        
         is_active: gw.is_active,
         priority: gw.priority,
         success_rate: parseFloat(successRate),
