@@ -5,7 +5,7 @@ import { useToast } from '../context/ToastContext';
 import {
   Settings, Globe, CreditCard, Webhook, Key, Save, RefreshCw,
   Plus, Trash2, TestTube2, ToggleLeft, ToggleRight, X, Eye, EyeOff,
-  Clock, CheckCircle, XCircle, ExternalLink
+  Clock, CheckCircle, XCircle, ExternalLink, Edit, Check
 } from 'lucide-react';
 import { Skeleton } from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
@@ -30,6 +30,29 @@ export default function SettingsPage() {
   const [webhookSaving, setWebhookSaving] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [confirmModal, setConfirmModal] = useState({ open: false, webhookId: null });
+
+  // Webhook Configuration
+  const [webhookConfig, setWebhookConfig] = useState({
+    primaryUrl: 'https://api.example.com/webhooks',
+    basicAuthUsername: '',
+    basicAuthPassword: '',
+    addFullGatewayResponse: true,
+    encryptionKey: 'JWT-HS256',
+  });
+  const [webhookConfigEditing, setWebhookConfigEditing] = useState(false);
+  const [webhookConfigSaving, setWebhookConfigSaving] = useState(false);
+  const [customHeaders, setCustomHeaders] = useState([
+    { id: 1, name: 'X-Correlation-ID', value: 'auto-generated' },
+    { id: 2, name: 'X-Merchant-ID', value: 'MID_JUSPAY_001' },
+  ]);
+  const [showPassword, setShowPassword] = useState(false);
+  const [eventSubscriptions, setEventSubscriptions] = useState({
+    'Order Events': { 'ORDER_CREATED': true, 'ORDER_CHARGED': true, 'ORDER_FAILED': true, 'ORDER_REFUNDED': true },
+    'Refund Events': { 'REFUND_CREATED': true, 'REFUND_PROCESSED': true, 'REFUND_FAILED': true },
+    'Transaction Events': { 'TXN_SUCCESS': true, 'TXN_FAILED': true },
+    'Mandate Events': { 'MANDATE_CREATED': true, 'MANDATE_PAUSED': true, 'MANDATE_REVOKED': true },
+    'Tokenization Events': { 'TOKEN_CREATED': true, 'TOKEN_DELETED': true },
+  });
 
   // API Keys
   const [apiKeys, setApiKeys] = useState([]);
@@ -133,6 +156,48 @@ export default function SettingsPage() {
     setWebhookForm(f => ({
       ...f,
       events: f.events.includes(event) ? f.events.filter(e => e !== event) : [...f.events, event],
+    }));
+  };
+
+  const handleSaveWebhookConfig = async () => {
+    // Validate HTTPS URL
+    if (!webhookConfig.primaryUrl.startsWith('https://')) {
+      toast.error('Webhook URL must use HTTPS');
+      return;
+    }
+    setWebhookConfigSaving(true);
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 500));
+      toast.success('Webhook configuration saved successfully');
+      setWebhookConfigEditing(false);
+    } catch (err) {
+      toast.error('Failed to save webhook configuration');
+    } finally {
+      setWebhookConfigSaving(false);
+    }
+  };
+
+  const handleAddHeader = () => {
+    const newId = Math.max(...customHeaders.map(h => h.id || 0), 0) + 1;
+    setCustomHeaders([...customHeaders, { id: newId, name: '', value: '' }]);
+  };
+
+  const handleUpdateHeader = (id, field, value) => {
+    setCustomHeaders(customHeaders.map(h => h.id === id ? { ...h, [field]: value } : h));
+  };
+
+  const handleDeleteHeader = (id) => {
+    setCustomHeaders(customHeaders.filter(h => h.id !== id));
+  };
+
+  const toggleEventSubscription = (category, event) => {
+    setEventSubscriptions(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [event]: !prev[category][event],
+      },
     }));
   };
 
@@ -304,69 +369,253 @@ export default function SettingsPage() {
 
               {/* Webhooks */}
               {activeTab === 'webhooks' && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-500">Configure endpoints to receive real-time event notifications</p>
-                    {canWrite && (
-                      <button onClick={() => setShowWebhookForm(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700">
-                        <Plus size={16} /> Add Webhook
-                      </button>
+                <div className="space-y-6">
+                  {/* Webhook Configuration Section */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-semibold text-gray-800">Webhook Configuration</h3>
+                      {canWrite && !webhookConfigEditing && (
+                        <button onClick={() => setWebhookConfigEditing(true)}
+                          className="flex items-center gap-2 px-3 py-1 text-sm text-primary-600 hover:bg-primary-50 rounded">
+                          <Edit size={14} /> Edit
+                        </button>
+                      )}
+                    </div>
+
+                    {webhookConfigEditing ? (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Primary Webhook URL *</label>
+                          <input type="url" value={webhookConfig.primaryUrl}
+                            onChange={(e) => setWebhookConfig(c => ({ ...c, primaryUrl: e.target.value }))}
+                            placeholder="https://your-server.com/webhooks"
+                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                          <p className="text-xs text-gray-400 mt-1">Must use HTTPS</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">HTTP Basic Auth Username</label>
+                            <input type="text" value={webhookConfig.basicAuthUsername}
+                              onChange={(e) => setWebhookConfig(c => ({ ...c, basicAuthUsername: e.target.value }))}
+                              placeholder="Username (optional)"
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">HTTP Basic Auth Password</label>
+                            <div className="relative">
+                              <input type={showPassword ? 'text' : 'password'} value={webhookConfig.basicAuthPassword}
+                                onChange={(e) => setWebhookConfig(c => ({ ...c, basicAuthPassword: e.target.value }))}
+                                placeholder="Password (optional)"
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm pr-9" />
+                              <button onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <label className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div>
+                              <p className="text-sm font-medium">Add Full Gateway Response</p>
+                              <p className="text-xs text-gray-500">Include complete payment gateway response</p>
+                            </div>
+                            <button onClick={() => setWebhookConfig(c => ({ ...c, addFullGatewayResponse: !c.addFullGatewayResponse }))}
+                              disabled={!canWrite}>
+                              {webhookConfig.addFullGatewayResponse
+                                ? <ToggleRight size={24} className="text-success-500" />
+                                : <ToggleLeft size={24} className="text-gray-300" />
+                              }
+                            </button>
+                          </label>
+
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Webhook Encryption Key</label>
+                            <select value={webhookConfig.encryptionKey}
+                              onChange={(e) => setWebhookConfig(c => ({ ...c, encryptionKey: e.target.value }))}
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                              <option value="None">None</option>
+                              <option value="JWT-HS256">JWT-HS256</option>
+                              <option value="JWT-RS256">JWT-RS256</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                          <button onClick={() => setWebhookConfigEditing(false)}
+                            className="flex-1 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+                            Cancel
+                          </button>
+                          <button onClick={handleSaveWebhookConfig} disabled={webhookConfigSaving}
+                            className="flex-1 flex items-center justify-center gap-2 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700 disabled:opacity-50">
+                            <Check size={14} /> {webhookConfigSaving ? 'Saving...' : 'Save'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 text-sm">
+                        <div className="flex items-center justify-between py-2 border-b border-gray-50">
+                          <span className="text-gray-600">Primary URL</span>
+                          <span className="text-gray-900 font-mono text-xs">{webhookConfig.primaryUrl}</span>
+                        </div>
+                        <div className="flex items-center justify-between py-2 border-b border-gray-50">
+                          <span className="text-gray-600">Basic Auth</span>
+                          <span className="text-gray-900">{webhookConfig.basicAuthUsername ? 'Configured' : 'Not configured'}</span>
+                        </div>
+                        <div className="flex items-center justify-between py-2 border-b border-gray-50">
+                          <span className="text-gray-600">Gateway Response</span>
+                          <span className={`badge ${webhookConfig.addFullGatewayResponse ? 'badge-success' : 'badge-gray'}`}>
+                            {webhookConfig.addFullGatewayResponse ? 'Enabled' : 'Disabled'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between py-2">
+                          <span className="text-gray-600">Encryption</span>
+                          <span className="text-gray-900">{webhookConfig.encryptionKey}</span>
+                        </div>
+                      </div>
                     )}
                   </div>
 
-                  {/* Webhook List */}
-                  {webhooks.length === 0 ? (
-                    <EmptyState icon="default" title="No webhooks configured" description="Add a webhook to receive real-time event notifications" />
-                  ) : (
-                    <div className="space-y-3">
-                      {webhooks.map(wh => (
-                        <div key={wh.id} className={`border rounded-lg p-4 ${wh.is_active ? 'border-gray-200' : 'border-gray-200 opacity-60'}`}>
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full ${wh.is_active ? 'bg-success-500' : 'bg-gray-300'}`} />
-                                <p className="text-sm font-medium text-gray-900 truncate">{wh.url}</p>
-                              </div>
-                              <p className="text-xs text-gray-500 mt-1 font-mono">{wh.webhook_id}</p>
-                              {wh.description && <p className="text-xs text-gray-500 mt-1">{wh.description}</p>}
-                            </div>
-                            {canWrite && (
-                              <div className="flex items-center gap-1 ml-3">
-                                <button onClick={() => handleTestWebhook(wh)} title="Test"
-                                  className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded">
-                                  <ExternalLink size={14} />
-                                </button>
-                                <button onClick={() => handleToggleWebhook(wh)} title={wh.is_active ? 'Disable' : 'Enable'}>
-                                  {wh.is_active
-                                    ? <ToggleRight size={22} className="text-success-500" />
-                                    : <ToggleLeft size={22} className="text-gray-300" />
-                                  }
-                                </button>
-                                <button onClick={() => setConfirmModal({ open: true, webhookId: wh.id })} title="Delete"
-                                  className="p-1.5 text-gray-400 hover:text-danger-600 hover:bg-danger-50 rounded">
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {(Array.isArray(wh.events) ? wh.events : JSON.parse(wh.events || '[]')).map(ev => (
-                              <span key={ev} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{ev}</span>
+                  {/* Custom Headers Section */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-semibold text-gray-800">Custom Headers</h3>
+                      {canWrite && (
+                        <button onClick={handleAddHeader}
+                          className="flex items-center gap-2 px-3 py-1 text-sm text-primary-600 hover:bg-primary-50 rounded">
+                          <Plus size={14} /> Add Header
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            <th className="text-left text-xs font-medium text-gray-500 uppercase px-3 py-2">Header Name</th>
+                            <th className="text-left text-xs font-medium text-gray-500 uppercase px-3 py-2">Header Value</th>
+                            {canWrite && <th className="text-center text-xs font-medium text-gray-500 uppercase px-3 py-2">Action</th>}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {customHeaders.map(header => (
+                            <tr key={header.id}>
+                              <td className="px-3 py-2">
+                                <input type="text" value={header.name}
+                                  onChange={(e) => handleUpdateHeader(header.id, 'name', e.target.value)}
+                                  disabled={!canWrite}
+                                  className="w-full border border-gray-200 rounded px-2 py-1 text-xs disabled:bg-gray-50" />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input type="text" value={header.value}
+                                  onChange={(e) => handleUpdateHeader(header.id, 'value', e.target.value)}
+                                  disabled={!canWrite}
+                                  className="w-full border border-gray-200 rounded px-2 py-1 text-xs disabled:bg-gray-50" />
+                              </td>
+                              {canWrite && (
+                                <td className="px-3 py-2 text-center">
+                                  <button onClick={() => handleDeleteHeader(header.id)}
+                                    className="text-gray-400 hover:text-danger-600">
+                                    <Trash2 size={14} />
+                                  </button>
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Event Subscriptions Section */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-4">Event Subscriptions</h3>
+                    <div className="space-y-4">
+                      {Object.entries(eventSubscriptions).map(([category, events]) => (
+                        <div key={category}>
+                          <h4 className="text-xs font-medium text-gray-600 mb-2 uppercase">{category}</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {Object.entries(events).map(([event, isChecked]) => (
+                              <label key={event} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                <input type="checkbox" checked={isChecked}
+                                  onChange={() => toggleEventSubscription(category, event)}
+                                  disabled={!canWrite}
+                                  className="rounded" />
+                                <span className="text-sm text-gray-700">{event}</span>
+                              </label>
                             ))}
                           </div>
-                          {testResult && testResult.id === wh.id && (
-                            <div className={`mt-2 p-2 rounded text-xs flex items-center gap-2 ${
-                              testResult.status === 'success' ? 'bg-success-50 text-success-600' : 'bg-danger-50 text-danger-600'
-                            }`}>
-                              {testResult.status === 'success' ? <CheckCircle size={14} /> : <XCircle size={14} />}
-                              {testResult.status === 'success' ? `Success — ${testResult.response_code} (${testResult.response_time}ms)` : `Failed — ${testResult.response_code}`}
-                            </div>
-                          )}
                         </div>
                       ))}
                     </div>
-                  )}
+                  </div>
+
+                  {/* Webhook List */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-semibold text-gray-800">Webhook Endpoints</h3>
+                      {canWrite && (
+                        <button onClick={() => setShowWebhookForm(true)}
+                          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700">
+                          <Plus size={16} /> Add Webhook
+                        </button>
+                      )}
+                    </div>
+
+                    {webhooks.length === 0 ? (
+                      <EmptyState icon="default" title="No webhooks configured" description="Add a webhook to receive real-time event notifications" />
+                    ) : (
+                      <div className="space-y-3">
+                        {webhooks.map(wh => (
+                          <div key={wh.id} className={`border rounded-lg p-4 ${wh.is_active ? 'border-gray-200' : 'border-gray-200 opacity-60'}`}>
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={`w-2 h-2 rounded-full ${wh.is_active ? 'bg-success-500' : 'bg-gray-300'}`} />
+                                  <p className="text-sm font-medium text-gray-900 truncate">{wh.url}</p>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1 font-mono">{wh.webhook_id}</p>
+                                {wh.description && <p className="text-xs text-gray-500 mt-1">{wh.description}</p>}
+                              </div>
+                              {canWrite && (
+                                <div className="flex items-center gap-1 ml-3">
+                                  <button onClick={() => handleTestWebhook(wh)} title="Test"
+                                    className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded">
+                                    <ExternalLink size={14} />
+                                  </button>
+                                  <button onClick={() => handleToggleWebhook(wh)} title={wh.is_active ? 'Disable' : 'Enable'}>
+                                    {wh.is_active
+                                      ? <ToggleRight size={22} className="text-success-500" />
+                                      : <ToggleLeft size={22} className="text-gray-300" />
+                                    }
+                                  </button>
+                                  <button onClick={() => setConfirmModal({ open: true, webhookId: wh.id })} title="Delete"
+                                    className="p-1.5 text-gray-400 hover:text-danger-600 hover:bg-danger-50 rounded">
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {(Array.isArray(wh.events) ? wh.events : JSON.parse(wh.events || '[]')).map(ev => (
+                                <span key={ev} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">{ev}</span>
+                              ))}
+                            </div>
+                            {testResult && testResult.id === wh.id && (
+                              <div className={`mt-2 p-2 rounded text-xs flex items-center gap-2 ${
+                                testResult.status === 'success' ? 'bg-success-50 text-success-600' : 'bg-danger-50 text-danger-600'
+                              }`}>
+                                {testResult.status === 'success' ? <CheckCircle size={14} /> : <XCircle size={14} />}
+                                {testResult.status === 'success' ? `Success — ${testResult.response_code} (${testResult.response_time}ms)` : `Failed — ${testResult.response_code}`}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   {/* New Webhook Form */}
                   {showWebhookForm && (

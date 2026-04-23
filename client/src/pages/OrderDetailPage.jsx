@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ordersAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
-import { ArrowLeft, Copy, CheckCircle, XCircle, Clock, RefreshCw, CreditCard, Shield, FileText } from 'lucide-react';
+import { ArrowLeft, Copy, CheckCircle, XCircle, Clock, RefreshCw, CreditCard, Shield, FileText, Globe, DollarSign } from 'lucide-react';
 
 function StatusBadge({ status }) {
   const styles = {
@@ -52,12 +52,59 @@ export default function OrderDetailPage() {
   }
 
   const { order, transactions, refunds, chargebacks, auditTrail } = data;
+
+  // Generate simulated webhook data
+  const generateWebhookEvents = () => {
+    if (order.status === 'CHARGED') {
+      return [
+        { eventName: 'ORDER_CREATED', status: 'Delivered', consumed: true, eventId: `EVT_${order.order_id}_001`, created: new Date(order.created_at) },
+        { eventName: 'PAYMENT_AUTHORIZED', status: 'Delivered', consumed: true, eventId: `EVT_${order.order_id}_002`, created: new Date(new Date(order.created_at).getTime() + 30000) },
+        { eventName: 'PAYMENT_CAPTURED', status: 'Delivered', consumed: true, eventId: `EVT_${order.order_id}_003`, created: new Date(new Date(order.created_at).getTime() + 45000) },
+      ];
+    } else if (order.status === 'PENDING_VBV' || order.status === 'PENDING') {
+      return [
+        { eventName: 'ORDER_CREATED', status: 'Delivered', consumed: true, eventId: `EVT_${order.order_id}_001`, created: new Date(order.created_at) },
+        { eventName: 'PAYMENT_AUTHORIZED', status: 'Failed', consumed: false, eventId: `EVT_${order.order_id}_002`, created: new Date(new Date(order.created_at).getTime() + 30000) },
+      ];
+    } else {
+      return [
+        { eventName: 'ORDER_CREATED', status: 'Delivered', consumed: true, eventId: `EVT_${order.order_id}_001`, created: new Date(order.created_at) },
+        { eventName: 'PAYMENT_FAILED', status: 'Delivered', consumed: true, eventId: `EVT_${order.order_id}_002`, created: new Date(new Date(order.created_at).getTime() + 30000) },
+      ];
+    }
+  };
+
+  // Generate simulated settlement data
+  const generateSettlementData = () => {
+    const isSettled = order.status === 'CHARGED';
+    const fee = (parseFloat(order.amount) * 0.018).toFixed(2);
+    const gst = (parseFloat(fee) * 0.18).toFixed(2);
+    const netAmount = (parseFloat(order.amount) - parseFloat(fee) - parseFloat(gst)).toFixed(2);
+    const settlementDate = isSettled ? new Date(new Date(order.created_at).getTime() + 2 * 24 * 60 * 60 * 1000) : null;
+    const utrNumber = isSettled ? `UTR${new Date().toISOString().slice(0, 10).replace(/-/g, '')}${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}` : null;
+
+    return {
+      status: isSettled ? 'SETTLED' : (order.status === 'PENDING_VBV' ? 'PENDING' : 'UNSETTLED'),
+      date: settlementDate,
+      utr: utrNumber,
+      fee: fee,
+      gst: gst,
+      netAmount: netAmount,
+      reconStatus: isSettled ? 'MATCHED' : 'PENDING',
+    };
+  };
+
+  const webhookEvents = generateWebhookEvents();
+  const settlementData = generateSettlementData();
+
   const tabs = [
     { id: 'payment', label: 'Payment Info', icon: CreditCard },
     { id: 'transactions', label: `Transactions (${transactions.length})`, icon: RefreshCw },
     { id: 'refunds', label: `Refunds (${refunds.length})`, icon: FileText },
     { id: 'risk', label: 'Risk / FRM', icon: Shield },
     { id: 'audit', label: 'Audit Trail', icon: Clock },
+    { id: 'webhooks', label: 'Webhooks', icon: Globe },
+    { id: 'settlements', label: 'Settlements & Recon', icon: DollarSign },
   ];
 
   return (
@@ -233,6 +280,111 @@ export default function OrderDetailPage() {
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {activeTab === 'webhooks' && (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2">Event Name</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2">Status</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2">Webhook Consumed</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2">Event ID</th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2">Created</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {webhookEvents.map((event, idx) => (
+                    <tr key={idx}>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900">{event.eventName}</td>
+                      <td className="px-4 py-2">
+                        <span className={`badge ${event.status === 'Delivered' ? 'badge-success' : 'badge-danger'}`}>
+                          {event.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">
+                        <span className={`badge ${event.consumed ? 'badge-success' : 'badge-danger'}`}>
+                          {event.consumed ? 'TRUE' : 'FALSE'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-sm font-mono text-gray-600">{event.eventId}</td>
+                      <td className="px-4 py-2 text-sm text-gray-500">{event.created.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {activeTab === 'settlements' && (
+            <div className="space-y-6 max-w-3xl">
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h3 className="text-sm font-semibold text-gray-800 mb-4">Settlement Details</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between py-3 border-b border-gray-50">
+                    <span className="text-sm text-gray-500">Settlement Status</span>
+                    <span className={`badge ${
+                      settlementData.status === 'SETTLED' ? 'badge-success' :
+                      settlementData.status === 'PENDING' ? 'badge-warning' :
+                      'badge-gray'
+                    }`}>
+                      {settlementData.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-3 border-b border-gray-50">
+                    <span className="text-sm text-gray-500">Settlement Date</span>
+                    <span className="text-sm text-gray-900">{settlementData.date ? settlementData.date.toLocaleString() : '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-3 border-b border-gray-50">
+                    <span className="text-sm text-gray-500">Settlement UTR</span>
+                    <span className="text-sm font-mono text-gray-900">{settlementData.utr || '—'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h3 className="text-sm font-semibold text-gray-800 mb-4">Fee Breakdown</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Transaction Amount</span>
+                    <span className="text-sm font-medium text-gray-900">{order.currency} {parseFloat(order.amount).toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-3 border-t border-b border-gray-100">
+                    <span className="text-sm text-gray-600">Transaction Fee (1.8%)</span>
+                    <span className="text-sm font-medium text-gray-900">- {order.currency} {parseFloat(settlementData.fee).toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">GST on Fee (18%)</span>
+                    <span className="text-sm font-medium text-gray-900">- {order.currency} {parseFloat(settlementData.gst).toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                    <span className="text-sm font-semibold text-gray-900">Net Settlement Amount</span>
+                    <span className="text-sm font-bold text-primary-600">{order.currency} {parseFloat(settlementData.netAmount).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h3 className="text-sm font-semibold text-gray-800 mb-4">Reconciliation</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between py-3 border-b border-gray-50">
+                    <span className="text-sm text-gray-500">Reconciliation Status</span>
+                    <span className={`badge ${settlementData.reconStatus === 'MATCHED' ? 'badge-success' : 'badge-warning'}`}>
+                      {settlementData.reconStatus}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between py-3 border-b border-gray-50">
+                    <span className="text-sm text-gray-500">Recon Date</span>
+                    <span className="text-sm text-gray-900">{settlementData.date ? new Date(settlementData.date.getTime() + 24 * 60 * 60 * 1000).toLocaleString() : '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-3">
+                    <span className="text-sm text-gray-500">Bank Reference Number</span>
+                    <span className="text-sm font-mono text-gray-900">BANKREF_{order.order_id.slice(-8)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
