@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ordersAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { TableSkeleton } from '../components/ui/Skeleton';
-import { EmptyState } from '../components/ui/EmptyState';
+import EmptyState from '../components/ui/EmptyState';
 import { downloadCSV } from '../utils/export';
 import { Search, Filter, Download, ChevronLeft, ChevronRight, RefreshCw, X } from 'lucide-react';
 

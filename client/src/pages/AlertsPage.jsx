@@ -3,8 +3,8 @@ import { alertsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { CardSkeleton } from '../components/ui/Skeleton';
-import { EmptyState } from '../components/ui/EmptyState';
-import { ConfirmModal } from '../components/ui/ConfirmModal';
+import EmptyState from '../components/ui/EmptyState';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import {
   Bell, Plus, X, Save, RefreshCw, Trash2, Edit3, Eye, CheckCircle,
   XCircle, AlertTriangle, AlertOctagon, Info, ToggleLeft, ToggleRight, Clock

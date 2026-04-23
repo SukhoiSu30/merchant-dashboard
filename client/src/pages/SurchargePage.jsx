@@ -3,8 +3,8 @@ import { surchargeAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { TableSkeleton } from '../components/ui/Skeleton';
-import { EmptyState } from '../components/ui/EmptyState';
-import { ConfirmModal } from '../components/ui/ConfirmModal';
+import EmptyState from '../components/ui/EmptyState';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import {
   Plus, Trash2, Edit3, X, Save, RefreshCw, Calculator,
   ToggleLeft, ToggleRight, Percent, DollarSign

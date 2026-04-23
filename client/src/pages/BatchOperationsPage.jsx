@@ -3,7 +3,7 @@ import { batchAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { TableSkeleton } from '../components/ui/Skeleton';
-import { EmptyState } from '../components/ui/EmptyState';
+import EmptyState from '../components/ui/EmptyState';
 import {
   Search, RefreshCw, ChevronLeft, ChevronRight, Upload, Download,
   Eye, X, FileText, CheckCircle, XCircle, Clock, AlertTriangle

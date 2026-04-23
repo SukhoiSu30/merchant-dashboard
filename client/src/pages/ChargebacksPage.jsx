@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Search, RefreshCw, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, XCircle, Eye, X, Download } from 'lucide-react';
 import { TableSkeleton, CardSkeleton } from '../components/ui/Skeleton';
-import { EmptyState } from '../components/ui/EmptyState';
+import EmptyState from '../components/ui/EmptyState';
 import { downloadCSV } from '../utils/export';
 
 function StatusBadge({ status }) {

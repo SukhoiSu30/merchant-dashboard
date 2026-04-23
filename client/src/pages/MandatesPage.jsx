@@ -3,8 +3,8 @@ import { mandatesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { TableSkeleton, CardSkeleton } from '../components/ui/Skeleton';
-import { EmptyState } from '../components/ui/EmptyState';
-import { ConfirmModal } from '../components/ui/ConfirmModal';
+import EmptyState from '../components/ui/EmptyState';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import { downloadCSV } from '../utils/export';
 import { Search, RefreshCw, ChevronLeft, ChevronRight, Pause, Play, XCircle, Eye, X, Download } from 'lucide-react';
 
