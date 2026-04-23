@@ -57,13 +57,15 @@ router.get('/', authenticate, requirePermission('batch_operations'), validatePag
 // GET /api/batch/:id - Batch details
 router.get('/:id', authenticate, requirePermission('batch_operations'), async (req, res, next) => {
   try {
+    const id = req.params.id;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     const result = await query(
       `SELECT b.*, u1.email as uploaded_by_email, u2.email as approved_by_email
        FROM batch_operations b
        LEFT JOIN users u1 ON b.uploaded_by = u1.id
        LEFT JOIN users u2 ON b.approved_by = u2.id
-       WHERE b.id = $1 OR b.batch_id = $1`,
-      [req.params.id]
+       WHERE ${isUUID ? 'b.id = $1' : 'b.batch_id = $1'}`,
+      [id]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Batch not found' });
@@ -222,7 +224,9 @@ router.post('/upload', authenticate, requirePermission('batch_operations', 'READ
 // GET /api/batch/:id/download - Download batch results as JSON (CSV conversion on frontend)
 router.get('/:id/download', authenticate, requirePermission('batch_operations'), async (req, res, next) => {
   try {
-    const result = await query('SELECT * FROM batch_operations WHERE id = $1 OR batch_id = $1', [req.params.id]);
+    const id = req.params.id;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const result = await query(`SELECT * FROM batch_operations WHERE ${isUUID ? 'id = $1' : 'batch_id = $1'}`, [id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Batch not found' });
 
     res.json({
@@ -248,7 +252,9 @@ router.get('/types/list', authenticate, async (req, res) => {
 // DELETE /api/batch/:id - Delete batch operation
 router.delete('/:id', authenticate, requirePermission('batch_operations', 'READ_WRITE'), async (req, res, next) => {
   try {
-    const result = await query('SELECT * FROM batch_operations WHERE id = $1 OR batch_id = $1', [req.params.id]);
+    const id = req.params.id;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const result = await query(`SELECT * FROM batch_operations WHERE ${isUUID ? 'id = $1' : 'batch_id = $1'}`, [id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Batch not found' });
 
     const batch = result.rows[0];

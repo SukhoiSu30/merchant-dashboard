@@ -89,12 +89,14 @@ router.get('/stats', authenticate, requirePermission('mandates'), async (req, re
 // GET /api/mandates/:id - Mandate details
 router.get('/:id', authenticate, requirePermission('mandates'), async (req, res, next) => {
   try {
+    const id = req.params.id;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     const result = await query(
       `SELECT md.*, m.name as merchant_name, m.merchant_id as merchant_code
        FROM mandates md
        LEFT JOIN merchants m ON md.merchant_id = m.id
-       WHERE md.id = $1 OR md.mandate_id = $1`,
-      [req.params.id]
+       WHERE ${isUUID ? 'md.id = $1' : 'md.mandate_id = $1'}`,
+      [id]
     );
 
     if (result.rows.length === 0) {
@@ -127,7 +129,9 @@ router.get('/:id', authenticate, requirePermission('mandates'), async (req, res,
 // PUT /api/mandates/:id/pause - Pause mandate
 router.put('/:id/pause', authenticate, requirePermission('mandates', 'READ_WRITE'), async (req, res, next) => {
   try {
-    const current = await query('SELECT * FROM mandates WHERE id = $1 OR mandate_id = $1', [req.params.id]);
+    const id = req.params.id;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const current = await query(`SELECT * FROM mandates WHERE ${isUUID ? 'id = $1' : 'mandate_id = $1'}`, [id]);
     if (current.rows.length === 0) return res.status(404).json({ error: 'Mandate not found' });
 
     const mandate = current.rows[0];
@@ -152,7 +156,9 @@ router.put('/:id/pause', authenticate, requirePermission('mandates', 'READ_WRITE
 // PUT /api/mandates/:id/resume - Resume mandate
 router.put('/:id/resume', authenticate, requirePermission('mandates', 'READ_WRITE'), async (req, res, next) => {
   try {
-    const current = await query('SELECT * FROM mandates WHERE id = $1 OR mandate_id = $1', [req.params.id]);
+    const id = req.params.id;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const current = await query(`SELECT * FROM mandates WHERE ${isUUID ? 'id = $1' : 'mandate_id = $1'}`, [id]);
     if (current.rows.length === 0) return res.status(404).json({ error: 'Mandate not found' });
 
     const mandate = current.rows[0];
@@ -177,7 +183,9 @@ router.put('/:id/resume', authenticate, requirePermission('mandates', 'READ_WRIT
 // PUT /api/mandates/:id/revoke - Revoke mandate (permanent)
 router.put('/:id/revoke', authenticate, requirePermission('mandates', 'READ_WRITE'), async (req, res, next) => {
   try {
-    const current = await query('SELECT * FROM mandates WHERE id = $1 OR mandate_id = $1', [req.params.id]);
+    const id = req.params.id;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const current = await query(`SELECT * FROM mandates WHERE ${isUUID ? 'id = $1' : 'mandate_id = $1'}`, [id]);
     if (current.rows.length === 0) return res.status(404).json({ error: 'Mandate not found' });
 
     const mandate = current.rows[0];

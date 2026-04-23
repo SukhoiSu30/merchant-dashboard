@@ -86,6 +86,8 @@ router.get('/stats', authenticate, requirePermission('chargebacks'), async (req,
 // GET /api/chargebacks/:id - Chargeback details
 router.get('/:id', authenticate, requirePermission('chargebacks'), async (req, res, next) => {
   try {
+    const id = req.params.id;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     const result = await query(
       `SELECT c.*, o.order_id as order_code, o.customer_email, o.customer_name,
               o.customer_phone, o.amount as order_amount, o.currency, o.gateway,
@@ -94,8 +96,8 @@ router.get('/:id', authenticate, requirePermission('chargebacks'), async (req, r
        FROM chargebacks c
        LEFT JOIN orders o ON c.order_id = o.id
        LEFT JOIN merchants m ON o.merchant_id = m.id
-       WHERE c.id = $1 OR c.chargeback_id = $1`,
-      [req.params.id]
+       WHERE ${isUUID ? 'c.id = $1' : 'c.chargeback_id = $1'}`,
+      [id]
     );
 
     if (result.rows.length === 0) {
@@ -135,7 +137,9 @@ router.put('/:id/status', authenticate, requirePermission('chargebacks', 'READ_W
       return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
     }
 
-    const current = await query('SELECT * FROM chargebacks WHERE id = $1 OR chargeback_id = $1', [req.params.id]);
+    const id = req.params.id;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const current = await query(`SELECT * FROM chargebacks WHERE ${isUUID ? 'id = $1' : 'chargeback_id = $1'}`, [id]);
     if (current.rows.length === 0) return res.status(404).json({ error: 'Chargeback not found' });
 
     const cb = current.rows[0];

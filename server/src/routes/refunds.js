@@ -106,6 +106,8 @@ router.post('/', authenticate, requirePermission('refunds', 'READ_WRITE'), valid
 // GET /api/refunds/:id - Refund details
 router.get('/:id', authenticate, requirePermission('refunds'), async (req, res, next) => {
   try {
+    const id = req.params.id;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     const result = await query(
       `SELECT r.*, o.order_id as order_code, o.amount as order_amount, o.customer_email, o.customer_name,
               u1.email as initiated_by_email, u2.email as approved_by_email
@@ -113,8 +115,8 @@ router.get('/:id', authenticate, requirePermission('refunds'), async (req, res, 
        LEFT JOIN orders o ON r.order_id = o.id
        LEFT JOIN users u1 ON r.initiated_by = u1.id
        LEFT JOIN users u2 ON r.approved_by = u2.id
-       WHERE r.id = $1 OR r.refund_id = $1`,
-      [req.params.id]
+       WHERE ${isUUID ? 'r.id = $1' : 'r.refund_id = $1'}`,
+      [id]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Refund not found' });

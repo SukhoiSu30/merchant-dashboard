@@ -107,6 +107,8 @@ router.get('/stats', authenticate, requirePermission('orders'), async (req, res,
 // GET /api/transactions/:id - Transaction details
 router.get('/:id', authenticate, requirePermission('orders'), async (req, res, next) => {
   try {
+    const id = req.params.id;
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
     const result = await query(
       `SELECT t.*, o.order_id as order_code, o.customer_email, o.customer_name,
               o.customer_phone, o.customer_id, o.amount as order_amount, o.currency,
@@ -119,8 +121,8 @@ router.get('/:id', authenticate, requirePermission('orders'), async (req, res, n
        FROM transactions t
        LEFT JOIN orders o ON t.order_id = o.id
        LEFT JOIN merchants m ON o.merchant_id = m.id
-       WHERE t.id = $1 OR t.txn_id = $1`,
-      [req.params.id]
+       WHERE ${isUUID ? 't.id = $1' : 't.txn_id = $1'}`,
+      [id]
     );
 
     if (result.rows.length === 0) {
