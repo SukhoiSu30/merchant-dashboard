@@ -357,21 +357,19 @@ export default function RoutingPage() {
                           {editingLogic && (
                             <div className="flex flex-col">
                               <button onClick={() => {
-                                const logic = { ...priorityLogic };
-                                const list = [...logic[selectedMethod]];
-                                if (idx > 0) { [list[idx], list[idx - 1]] = [list[idx - 1], list[idx]]; }
-                                list.forEach((g, i) => { g.priority = i + 1; });
-                                logic[selectedMethod] = list;
-                                setPriorityLogic(logic);
+                                setPriorityLogic(prev => {
+                                  const list = [...(prev[selectedMethod] || [])];
+                                  if (idx > 0) { [list[idx], list[idx - 1]] = [list[idx - 1], list[idx]]; }
+                                  return { ...prev, [selectedMethod]: list.map((g, i) => ({ ...g, priority: i + 1 })) };
+                                });
                               }} disabled={idx === 0}
                                 className="text-gray-400 hover:text-gray-600 disabled:opacity-20"><ChevronUp size={16} /></button>
                               <button onClick={() => {
-                                const logic = { ...priorityLogic };
-                                const list = [...logic[selectedMethod]];
-                                if (idx < list.length - 1) { [list[idx], list[idx + 1]] = [list[idx + 1], list[idx]]; }
-                                list.forEach((g, i) => { g.priority = i + 1; });
-                                logic[selectedMethod] = list;
-                                setPriorityLogic(logic);
+                                setPriorityLogic(prev => {
+                                  const list = [...(prev[selectedMethod] || [])];
+                                  if (idx < list.length - 1) { [list[idx], list[idx + 1]] = [list[idx + 1], list[idx]]; }
+                                  return { ...prev, [selectedMethod]: list.map((g, i) => ({ ...g, priority: i + 1 })) };
+                                });
                               }} disabled={idx === (priorityLogic[selectedMethod] || []).length - 1}
                                 className="text-gray-400 hover:text-gray-600 disabled:opacity-20"><ChevronDown size={16} /></button>
                             </div>
