@@ -15,6 +15,7 @@ import MandatesPage from './pages/MandatesPage';
 import GatewaysPage from './pages/GatewaysPage';
 import UsersPage from './pages/UsersPage';
 import BatchOperationsPage from './pages/BatchOperationsPage';
+import AltIdPage from './pages/AltIdPage';
 import SurchargePage from './pages/SurchargePage';
 import RoutingPage from './pages/RoutingPage';
 import AlertsPage from './pages/AlertsPage';
@@ -63,6 +64,7 @@ function DashboardLayout() {
             <Route path="/mandates" element={<MandatesPage />} />
             <Route path="/gateways" element={<GatewaysPage />} />
             <Route path="/batch" element={<BatchOperationsPage />} />
+            <Route path="/altid" element={<AltIdPage />} />
             <Route path="/surcharge" element={<SurchargePage />} />
             <Route path="/routing" element={<RoutingPage />} />
             <Route path="/alerts" element={<AlertsPage />} />

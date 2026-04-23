@@ -63,6 +63,7 @@ app.use('/api/surcharge', require('./routes/surcharge'));
 app.use('/api/routing', require('./routes/routing'));
 app.use('/api/alerts', require('./routes/alerts'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/altid', require('./routes/altid'));
 
 // Health check
 app.get('/api/health', async (req, res) => {

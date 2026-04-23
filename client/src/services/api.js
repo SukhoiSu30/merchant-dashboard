@@ -190,4 +190,11 @@ export const reportsAPI = {
   createSchedule: (data) => api.post('/reports/schedule', data),
 };
 
+// ALT ID API
+export const altIdAPI = {
+  template: () => api.get('/altid/template', { responseType: 'blob' }),
+  generate: (data) => api.post('/altid/generate', data),
+  history: () => api.get('/altid/history'),
+};
+
 export default api;

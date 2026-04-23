@@ -31,6 +31,7 @@ const navGroups = [
       { path: '/routing', icon: GitBranch, label: 'Routing & Outages', module: 'gateways' },
       { path: '/surcharge', icon: Percent, label: 'Surcharge', module: 'gateways' },
       { path: '/batch', icon: Upload, label: 'Batch Operations', module: 'batch_operations' },
+      { path: '/altid', icon: CreditCard, label: 'ALT ID Generation', module: 'batch_operations' },
     ],
   },
   {
