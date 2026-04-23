@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { authenticator } = require('otplib');
 const QRCode = require('qrcode');
+const crypto = require('crypto');
 const { query } = require('../config/database');
 const authConfig = require('../config/auth');
 const { authenticate } = require('../middleware/auth');
@@ -297,6 +298,111 @@ router.post('/change-password', authenticate, async (req, res, next) => {
     );
 
     res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/auth/verify-token/:token - Verify setup token
+router.get('/verify-token/:token', async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    if (!token) {
+      return res.status(400).json({ error: 'Token is required' });
+    }
+
+    const result = await query(
+      `SELECT pst.*, u.email FROM password_setup_tokens pst
+       JOIN users u ON pst.user_id = u.id
+       WHERE pst.token = $1`,
+      [token]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ valid: false, error: 'Token not found' });
+    }
+
+    const tokenData = result.rows[0];
+
+    // Check if token has been used
+    if (tokenData.used_at) {
+      return res.json({ valid: false, error: 'Token has already been used' });
+    }
+
+    // Check if token has expired
+    if (new Date(tokenData.expires_at) < new Date()) {
+      return res.json({ valid: false, error: 'Token has expired' });
+    }
+
+    res.json({
+      valid: true,
+      email: tokenData.email,
+      expiresAt: tokenData.expires_at,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/auth/setup-password - Set password using token
+router.post('/setup-password', async (req, res, next) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and password are required' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    // Find and validate token
+    const tokenResult = await query(
+      `SELECT pst.*, u.id as user_id, u.email FROM password_setup_tokens pst
+       JOIN users u ON pst.user_id = u.id
+       WHERE pst.token = $1`,
+      [token]
+    );
+
+    if (tokenResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid token' });
+    }
+
+    const tokenData = tokenResult.rows[0];
+
+    // Check if token has been used
+    if (tokenData.used_at) {
+      return res.status(400).json({ error: 'Token has already been used' });
+    }
+
+    // Check if token has expired
+    if (new Date(tokenData.expires_at) < new Date()) {
+      return res.status(400).json({ error: 'Token has expired' });
+    }
+
+    // Hash password and update user
+    const hash = await bcrypt.hash(password, authConfig.password.saltRounds);
+
+    await query(
+      'UPDATE users SET password_hash = $1, status = $2, updated_at = NOW() WHERE id = $3',
+      [hash, 'ACTIVE', tokenData.user_id]
+    );
+
+    // Mark token as used
+    await query(
+      'UPDATE password_setup_tokens SET used_at = NOW() WHERE token = $1',
+      [token]
+    );
+
+    // Audit log
+    await query(
+      `INSERT INTO audit_logs (user_id, action, module, description, ip_address)
+       VALUES ($1, 'SETUP_PASSWORD', 'AUTH', 'User set password via setup token', $2)`,
+      [tokenData.user_id, req.ip]
+    );
+
+    res.json({ message: 'Password set successfully' });
   } catch (error) {
     next(error);
   }

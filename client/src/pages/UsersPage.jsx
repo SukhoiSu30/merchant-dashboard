@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { usersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Search, Plus, X, Lock, Unlock, Edit2, Shield, RefreshCw, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { Search, Plus, X, Lock, Unlock, Edit2, Shield, RefreshCw, ChevronLeft, ChevronRight, Download, Copy, Check } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { TableSkeleton } from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
@@ -27,6 +27,8 @@ export default function UsersPage() {
   const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
   const [confirmModal, setConfirmModal] = useState({ open: false, userId: null, userName: '', action: '', loading: false });
+  const [setupTokenModal, setSetupTokenModal] = useState({ open: false, email: '', setupToken: '', setupUrl: '' });
+  const [copied, setCopied] = useState(false);
 
   const fetchUsers = async (page = 1) => {
     setLoading(true);
@@ -54,14 +56,34 @@ export default function UsersPage() {
     setCreateError('');
     setCreating(true);
     try {
-      await usersAPI.create(createForm);
+      const { data } = await usersAPI.create(createForm);
       toast.success('User created successfully');
       setShowCreate(false);
+
+      // Show setup token if available
+      if (data.setupToken) {
+        const baseUrl = window.location.origin;
+        const setupUrl = `${baseUrl}/setup-password/${data.setupToken}`;
+        setSetupTokenModal({
+          open: true,
+          email: createForm.email,
+          setupToken: data.setupToken,
+          setupUrl
+        });
+      }
+
       setCreateForm({ email: '', password: '', first_name: '', last_name: '', role_id: '' });
       fetchUsers();
     } catch (err) {
       setCreateError(err.response?.data?.error || err.response?.data?.errors?.join(', ') || 'Failed');
     } finally { setCreating(false); }
+  };
+
+  const handleCopySetupUrl = () => {
+    navigator.clipboard.writeText(setupTokenModal.setupUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast.success('Setup URL copied to clipboard');
   };
 
   const handleStatusChange = (userId, userName, action) => {
@@ -266,6 +288,57 @@ export default function UsersPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Setup Token Modal */}
+      {setupTokenModal.open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Setup Link Created</h2>
+              <button onClick={() => setSetupTokenModal({ open: false, email: '', setupToken: '', setupUrl: '' })} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-900 mb-2"><strong>User Email:</strong> {setupTokenModal.email}</p>
+                <p className="text-sm text-blue-700 mb-3">Share this setup link with the user. It will expire in 72 hours.</p>
+
+                <div className="bg-white border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-500 mb-2">Setup URL:</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={setupTokenModal.setupUrl}
+                      readOnly
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono bg-gray-50"
+                    />
+                    <button
+                      onClick={handleCopySetupUrl}
+                      className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 flex-shrink-0"
+                      title="Copy to clipboard"
+                    >
+                      {copied ? <Check size={18} className="text-success-600" /> : <Copy size={18} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-xs text-yellow-800">
+                  <strong>Important:</strong> The user will need to visit this link to set their own password. This link will only work once and expires in 72 hours.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setSetupTokenModal({ open: false, email: '', setupToken: '', setupUrl: '' })}
+                className="w-full py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700"
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

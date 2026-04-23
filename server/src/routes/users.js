@@ -1,5 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { query } = require('../config/database');
 const { authenticate, requirePermission } = require('../middleware/auth');
 const { validateUser, validatePagination } = require('../middleware/validation');
@@ -109,13 +110,34 @@ router.post('/', authenticate, requirePermission('users', 'READ_WRITE'), validat
       [email.toLowerCase(), hash, first_name, last_name || '', role_id, merchant_id || null, req.user.id]
     );
 
+    // Generate setup token (72 hour expiry)
+    const setupToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+    await query(
+      `INSERT INTO password_setup_tokens (user_id, token, expires_at)
+       VALUES ($1, $2, $3)`,
+      [result.rows[0].id, setupToken, expiresAt]
+    );
+
     await query(
       `INSERT INTO audit_logs (user_id, action, module, entity_type, entity_id, new_values, ip_address)
        VALUES ($1, 'CREATE_USER', 'USERS', 'user', $2, $3, $4)`,
       [req.user.id, result.rows[0].id, JSON.stringify({ email, first_name, last_name }), req.ip]
     );
 
-    res.status(201).json({ user: result.rows[0], message: 'User created successfully' });
+    // Log user invite
+    await query(
+      `INSERT INTO audit_logs (user_id, action, module, entity_type, entity_id, description, ip_address)
+       VALUES ($1, 'USER_INVITED', 'USERS', 'user', $2, $3, $4)`,
+      [req.user.id, result.rows[0].id, `User invited: ${email}`, req.ip]
+    );
+
+    res.status(201).json({
+      user: result.rows[0],
+      setupToken,
+      message: 'User created successfully. Setup token generated.'
+    });
   } catch (error) {
     next(error);
   }

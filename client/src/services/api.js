@@ -51,6 +51,8 @@ export const authAPI = {
   enable2FA: (data) => api.post('/auth/enable-2fa', data),
   disable2FA: (data) => api.post('/auth/disable-2fa', data),
   changePassword: (data) => api.post('/auth/change-password', data),
+  verifyToken: (token) => api.get(`/auth/verify-token/${token}`),
+  setupPassword: (data) => api.post('/auth/setup-password', data),
 };
 
 // Dashboard API

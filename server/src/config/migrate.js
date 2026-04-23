@@ -309,6 +309,19 @@ CREATE TABLE IF NOT EXISTS monitoring_alerts (
 );
 
 -- ============================================
+-- PASSWORD SETUP TOKENS
+-- ============================================
+CREATE TABLE IF NOT EXISTS password_setup_tokens (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token VARCHAR(255) UNIQUE NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_password_tokens_token ON password_setup_tokens(token);
+
+-- ============================================
 -- INDEXES
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_orders_merchant ON orders(merchant_id);

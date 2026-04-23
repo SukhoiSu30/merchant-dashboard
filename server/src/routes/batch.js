@@ -1,5 +1,6 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const { query } = require('../config/database');
 const { authenticate, requirePermission } = require('../middleware/auth');
 const { validatePagination } = require('../middleware/validation');
@@ -122,13 +123,30 @@ router.post('/upload', authenticate, requirePermission('batch_operations', 'READ
             continue;
           }
           // Insert user
-          await query(
+          const userResult = await query(
             `INSERT INTO users (email, password_hash, first_name, last_name, role_id, status, created_by)
-             VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6)`,
+             VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6) RETURNING id`,
             [row.email, defaultPassword, row.first_name, row.last_name || '', roleResult.rows[0].id, req.user.id]
           );
+
+          // Generate setup token (72 hour expiry)
+          const setupToken = crypto.randomBytes(32).toString('hex');
+          const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+
+          await query(
+            `INSERT INTO password_setup_tokens (user_id, token, expires_at)
+             VALUES ($1, $2, $3)`,
+            [userResult.rows[0].id, setupToken, expiresAt]
+          );
+
           accepted++;
-          results.push({ ...row, status: 'ACCEPTED', message: 'User created (default password: User@1234)', row_number: i + 1 });
+          results.push({
+            ...row,
+            status: 'ACCEPTED',
+            message: `User created. Setup link: /setup-password/${setupToken}`,
+            setupToken,
+            row_number: i + 1
+          });
         } catch (err) {
           rejected++;
           results.push({ ...row, status: 'REJECTED', message: err.message, row_number: i + 1 });
