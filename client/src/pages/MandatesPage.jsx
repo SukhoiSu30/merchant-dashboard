@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { mandatesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Search, RefreshCw, ChevronLeft, ChevronRight, Pause, Play, XCircle, Eye, X } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { TableSkeleton, CardSkeleton } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { downloadCSV } from '../utils/export';
+import { Search, RefreshCw, ChevronLeft, ChevronRight, Pause, Play, XCircle, Eye, X, Download } from 'lucide-react';
 
 function StatusBadge({ status }) {
   const styles = {
@@ -13,6 +18,7 @@ function StatusBadge({ status }) {
 
 export default function MandatesPage() {
   const { hasPermission } = useAuth();
+  const toast = useToast();
   const canWrite = hasPermission('mandates', 'READ_WRITE');
   const [mandates, setMandates] = useState([]);
   const [stats, setStats] = useState(null);
@@ -21,6 +27,7 @@ export default function MandatesPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [actionLoading, setActionLoading] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
 
   // Detail modal
   const [selectedMandate, setSelectedMandate] = useState(null);
@@ -40,27 +47,34 @@ export default function MandatesPage() {
       setMandates(mandRes.data.mandates);
       setPagination(mandRes.data.pagination);
       setStats(statsRes.data);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to load mandates'); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { fetchData(); }, []);
 
   const handleAction = async (mandateId, action) => {
+    if (action === 'revoke') {
+      setConfirmAction({ mandateId, action });
+      return;
+    }
     setActionLoading(mandateId);
     try {
       if (action === 'pause') await mandatesAPI.pause(mandateId);
       else if (action === 'resume') await mandatesAPI.resume(mandateId);
-      else if (action === 'revoke') {
-        if (!confirm('Revoking a mandate is permanent and cannot be undone. Continue?')) {
-          setActionLoading(null);
-          return;
-        }
-        await mandatesAPI.revoke(mandateId);
-      }
       fetchData(pagination.page);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error(`Failed to ${action} mandate`); }
     finally { setActionLoading(null); }
+  };
+
+  const executeRevoke = async (mandateId) => {
+    setActionLoading(mandateId);
+    try {
+      await mandatesAPI.revoke(mandateId);
+      fetchData(pagination.page);
+      toast.success('Mandate revoked successfully');
+    } catch (err) { toast.error('Failed to revoke mandate'); }
+    finally { setActionLoading(null); setConfirmAction(null); }
   };
 
   const openDetail = async (m) => {
@@ -69,7 +83,7 @@ export default function MandatesPage() {
     try {
       const { data } = await mandatesAPI.get(m.mandate_id);
       setDetailData(data);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to load mandate details'); }
     finally { setDetailLoading(false); }
   };
 
@@ -83,7 +97,9 @@ export default function MandatesPage() {
       </div>
 
       {/* Stats */}
-      {stats && (
+      {loading && !stats ? (
+        <div className="mb-6"><CardSkeleton count={4} /></div>
+      ) : stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <p className="text-xs text-gray-500 mb-1">Total</p>
@@ -119,6 +135,7 @@ export default function MandatesPage() {
             <option value="REVOKED">Revoked</option><option value="FAILED">Failed</option>
             <option value="CREATED">Created</option><option value="EXPIRED">Expired</option>
           </select>
+          <button onClick={() => downloadCSV(mandates, 'mandates.csv')} title="Export as CSV" className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"><Download size={18} /></button>
           <button onClick={() => fetchData()} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"><RefreshCw size={18} /></button>
         </div>
       </div>
@@ -141,9 +158,9 @@ export default function MandatesPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-500">Loading...</td></tr>
+                <tr><td colSpan={8}><TableSkeleton rows={6} cols={8} /></td></tr>
               ) : mandates.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-500">No mandates found</td></tr>
+                <tr><td colSpan={8}><EmptyState icon="payment" title="No mandates found" description="No recurring payment mandates match your criteria" /></td></tr>
               ) : (
                 mandates.map((m) => (
                   <tr key={m.id} className="hover:bg-gray-50">
@@ -245,6 +262,17 @@ export default function MandatesPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Confirm Modal for Revoke */}
+      {confirmAction && (
+        <ConfirmModal
+          title="Revoke Mandate"
+          message="Revoking a mandate is permanent and cannot be undone. Continue?"
+          onConfirm={() => executeRevoke(confirmAction.mandateId)}
+          onCancel={() => setConfirmAction(null)}
+          isDangerous={true}
+        />
       )}
     </div>
   );

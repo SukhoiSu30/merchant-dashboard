@@ -3,32 +3,54 @@ import { gatewaysAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { RefreshCw, Zap, ToggleLeft, ToggleRight, Eye, X, TrendingUp, AlertTriangle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { useToast } from '../context/ToastContext';
+import { CardSkeleton } from '../components/ui/Skeleton';
+import EmptyState from '../components/ui/EmptyState';
+import ConfirmModal from '../components/ui/ConfirmModal';
 
 export default function GatewaysPage() {
   const { hasPermission } = useAuth();
+  const toast = useToast();
   const canWrite = hasPermission('gateways', 'READ_WRITE');
   const [gateways, setGateways] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedGw, setSelectedGw] = useState(null);
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({ open: false, gatewayId: null, gatewayName: '', isActive: false, loading: false });
 
   const fetchGateways = async () => {
     setLoading(true);
     try {
       const { data } = await gatewaysAPI.list();
       setGateways(data.gateways);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to load gateways'); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { fetchGateways(); }, []);
 
-  const handleToggle = async (id) => {
+  const handleToggle = (gw) => {
+    setConfirmModal({
+      open: true,
+      gatewayId: gw.id,
+      gatewayName: gw.gateway_name,
+      isActive: gw.is_active,
+      loading: false
+    });
+  };
+
+  const handleConfirmToggle = async () => {
+    setConfirmModal({ ...confirmModal, loading: true });
     try {
-      await gatewaysAPI.toggle(id);
+      await gatewaysAPI.toggle(confirmModal.gatewayId);
+      toast.success('Gateway status updated');
       fetchGateways();
-    } catch (err) { console.error(err); }
+      setConfirmModal({ open: false, gatewayId: null, gatewayName: '', isActive: false, loading: false });
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update gateway status');
+      setConfirmModal({ ...confirmModal, loading: false });
+    }
   };
 
   const openDetail = async (gw) => {
@@ -37,7 +59,7 @@ export default function GatewaysPage() {
     try {
       const { data } = await gatewaysAPI.get(gw.id);
       setDetailData(data);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to load gateway details'); }
     finally { setDetailLoading(false); }
   };
 
@@ -52,7 +74,9 @@ export default function GatewaysPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-gray-500">Loading gateways...</div>
+        <CardSkeleton count={6} />
+      ) : gateways.length === 0 ? (
+        <EmptyState icon="alert" title="No gateways configured" description="Configure payment gateways to accept payments" />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {gateways.map((gw) => (
@@ -69,7 +93,7 @@ export default function GatewaysPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {canWrite && (
-                    <button onClick={() => handleToggle(gw.id)} title={gw.is_active ? 'Deactivate' : 'Activate'}>
+                    <button onClick={() => handleToggle(gw)} title={gw.is_active ? 'Deactivate' : 'Activate'}>
                       {gw.is_active
                         ? <ToggleRight size={24} className="text-success-500" />
                         : <ToggleLeft size={24} className="text-gray-300" />
@@ -188,6 +212,19 @@ export default function GatewaysPage() {
           </div>
         </div>
       )}
+
+      {/* Confirm Toggle Modal */}
+      <ConfirmModal
+        open={confirmModal.open}
+        onClose={() => setConfirmModal({ open: false, gatewayId: null, gatewayName: '', isActive: false, loading: false })}
+        onConfirm={handleConfirmToggle}
+        title={confirmModal.isActive ? 'Deactivate Gateway' : 'Activate Gateway'}
+        message={`Are you sure you want to ${confirmModal.isActive ? 'deactivate' : 'activate'} ${confirmModal.gatewayName}?`}
+        confirmText={confirmModal.isActive ? 'Deactivate' : 'Activate'}
+        cancelText="Cancel"
+        variant={confirmModal.isActive ? 'danger' : 'primary'}
+        loading={confirmModal.loading}
+      />
     </div>
   );
 }

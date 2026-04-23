@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { authAPI, settingsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import {
   Shield, Lock, Smartphone, Key, Eye, EyeOff, CheckCircle, XCircle,
   AlertTriangle, RefreshCw, Copy
 } from 'lucide-react';
+import { Skeleton } from '../components/ui/Skeleton';
 
 export default function SecurityPage() {
   const { user } = useAuth();
+  const toast = useToast();
 
   const [activeTab, setActiveTab] = useState('password');
 
@@ -35,7 +38,9 @@ export default function SecurityPage() {
       try {
         const { data } = await settingsAPI.getSecurity();
         setSecuritySettings(data.settings);
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        toast.error('Failed to load security settings');
+      }
       finally { setSettingsLoading(false); }
     };
     fetchSecurity();
@@ -73,7 +78,7 @@ export default function SecurityPage() {
     try {
       const { data } = await authAPI.setup2FA();
       setSetupData(data);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to set up 2FA. Please try again.'); }
     finally { setSetupLoading(false); }
   };
 
@@ -89,8 +94,9 @@ export default function SecurityPage() {
       const stored = JSON.parse(localStorage.getItem('user') || '{}');
       stored.two_factor_enabled = true;
       localStorage.setItem('user', JSON.stringify(stored));
+      toast.success('Two-factor authentication enabled');
     } catch (err) {
-      alert(err.response?.data?.error || 'Invalid code');
+      toast.error(err.response?.data?.error || 'Invalid code');
     }
     finally { setVerifyLoading(false); }
   };
@@ -105,8 +111,9 @@ export default function SecurityPage() {
       const stored = JSON.parse(localStorage.getItem('user') || '{}');
       stored.two_factor_enabled = false;
       localStorage.setItem('user', JSON.stringify(stored));
+      toast.success('Two-factor authentication disabled');
     } catch (err) {
-      alert(err.response?.data?.error || 'Invalid code');
+      toast.error(err.response?.data?.error || 'Invalid code');
     }
     finally { setDisableLoading(false); }
   };
@@ -353,7 +360,15 @@ export default function SecurityPage() {
           {activeTab === 'policies' && (
             <div className="space-y-6 max-w-2xl">
               {settingsLoading ? (
-                <div className="text-center py-12 text-gray-500">Loading...</div>
+                <div className="space-y-4">
+                  <Skeleton height="20px" width="200px" />
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="space-y-3">
+                      <Skeleton height="16px" width="150px" />
+                      <Skeleton height="16px" width="100%" />
+                    </div>
+                  ))}
+                </div>
               ) : securitySettings && (
                 <>
                   <div>

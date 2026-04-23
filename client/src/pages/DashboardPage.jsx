@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { dashboardAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 import {
   TrendingUp, TrendingDown, DollarSign, ShoppingCart, CheckCircle,
   XCircle, ArrowUpRight, ArrowDownRight, RefreshCw
@@ -9,6 +10,7 @@ import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
+import { CardSkeleton, TableSkeleton, Skeleton } from '../components/ui/Skeleton';
 
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
@@ -55,6 +57,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('7d');
   const navigate = useNavigate();
+  const toast = useToast();
 
   const fetchData = async () => {
     setLoading(true);
@@ -62,7 +65,7 @@ export default function DashboardPage() {
       const { data: result } = await dashboardAPI.overview(period);
       setData(result);
     } catch (err) {
-      console.error('Dashboard fetch error:', err);
+      toast.error('Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -72,8 +75,56 @@ export default function DashboardPage() {
 
   if (loading || !data) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="animate-spin text-primary-500" size={32} />
+      <div>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <Skeleton height="28px" width="200px" className="mb-2" />
+            <Skeleton height="16px" width="300px" />
+          </div>
+          <div className="flex items-center gap-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} height="32px" width="80px" />
+            ))}
+          </div>
+        </div>
+
+        {/* Metric Cards */}
+        <div className="mb-6">
+          <CardSkeleton count={4} />
+        </div>
+
+        {/* Charts Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
+            <Skeleton height="20px" width="150px" className="mb-4" />
+            <Skeleton height="250px" width="100%" />
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <Skeleton height="20px" width="150px" className="mb-4" />
+            <Skeleton height="250px" width="100%" />
+          </div>
+        </div>
+
+        {/* Gateway & Revenue Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <Skeleton height="20px" width="150px" className="mb-4" />
+            <Skeleton height="250px" width="100%" />
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <Skeleton height="20px" width="150px" className="mb-4" />
+            <Skeleton height="250px" width="100%" />
+          </div>
+        </div>
+
+        {/* Recent Orders Table */}
+        <div className="bg-white rounded-xl border border-gray-200">
+          <div className="p-5 border-b border-gray-100">
+            <Skeleton height="20px" width="150px" />
+          </div>
+          <TableSkeleton rows={5} cols={7} />
+        </div>
       </div>
     );
   }

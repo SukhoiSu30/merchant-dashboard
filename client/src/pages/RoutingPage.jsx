@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { routingAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { CardSkeleton } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
 import {
   RefreshCw, ArrowUpDown, Plus, X, Save, AlertTriangle, CheckCircle,
   XCircle, Shield, Activity, Clock, Zap, ToggleLeft, ToggleRight,
@@ -28,9 +32,11 @@ function HealthBadge({ status }) {
 export default function RoutingPage() {
   const { hasPermission } = useAuth();
   const canWrite = hasPermission('gateways', 'READ_WRITE');
+  const toast = useToast();
 
   const [activeTab, setActiveTab] = useState('health');
   const [loading, setLoading] = useState(true);
+  const [resolveConfirm, setResolveConfirm] = useState({ open: false, outageId: null, gatewayId: null });
 
   // Health
   const [health, setHealth] = useState([]);
@@ -74,7 +80,7 @@ export default function RoutingPage() {
         const { data } = await routingAPI.outages();
         setOutageData(data);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to load routing data'); }
     finally { setLoading(false); }
   };
 
@@ -83,9 +89,10 @@ export default function RoutingPage() {
   const handleSavePriorities = async () => {
     try {
       await routingAPI.updatePriority({ priorities });
+      toast.success('Gateway priorities updated');
       setEditingPriorities(false);
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to update priorities'); }
   };
 
   const movePriority = (idx, dir) => {
@@ -102,18 +109,19 @@ export default function RoutingPage() {
     setRuleSaving(true);
     try {
       await routingAPI.createRule(ruleForm);
+      toast.success('Routing rule created successfully');
       setShowRuleForm(false);
       setRuleForm({ rule_name: '', condition_type: 'PAYMENT_METHOD', condition_value: '', target_gateway: '', action: 'ROUTE', priority: 10 });
       fetchData();
-    } catch (err) { alert(err.response?.data?.error || 'Failed'); }
+    } catch (err) { toast.error(err.response?.data?.error || 'Failed to create rule'); }
     finally { setRuleSaving(false); }
   };
 
   const handleSaveSmartRouting = async () => {
     try {
       await routingAPI.updateSmart(smartConfig);
-      alert('Smart routing updated');
-    } catch (err) { console.error(err); }
+      toast.success('Smart routing updated successfully');
+    } catch (err) { toast.error('Failed to update smart routing'); }
   };
 
   const handleCreateOutage = async () => {
@@ -121,18 +129,25 @@ export default function RoutingPage() {
     setOutageSaving(true);
     try {
       await routingAPI.createOutage(outageForm);
+      toast.success('Outage reported successfully');
       setShowOutageForm(false);
       setOutageForm({ gateway_id: '', reason: '', payment_methods: [] });
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to report outage'); }
     finally { setOutageSaving(false); }
   };
 
   const handleResolveOutage = async (outageId, gatewayId) => {
+    setResolveConfirm({ open: true, outageId, gatewayId });
+  };
+
+  const confirmResolveOutage = async () => {
     try {
-      await routingAPI.resolveOutage(outageId, { gateway_id: gatewayId });
+      await routingAPI.resolveOutage(resolveConfirm.outageId, { gateway_id: resolveConfirm.gatewayId });
+      toast.success('Outage resolved successfully');
+      setResolveConfirm({ open: false, outageId: null, gatewayId: null });
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to resolve outage'); }
   };
 
   const CONDITION_TYPES = [
@@ -183,7 +198,11 @@ export default function RoutingPage() {
 
         <div className="p-5">
           {loading ? (
-            <div className="text-center py-12 text-gray-500">Loading...</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CardSkeleton />
+              <CardSkeleton />
+              <CardSkeleton />
+            </div>
           ) : (
             <>
               {/* Gateway Health */}
@@ -286,30 +305,31 @@ export default function RoutingPage() {
                   </div>
 
                   <div className="space-y-2">
-                    {rules.map(rule => (
-                      <div key={rule.id} className={`border rounded-lg p-4 ${rule.is_active ? 'border-gray-200' : 'border-gray-200 opacity-50'}`}>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-400">#{rule.priority}</span>
-                              <p className="text-sm font-medium text-gray-900">{rule.rule_name}</p>
-                              <span className={`badge ${rule.is_active ? 'badge-success' : 'badge-gray'}`}>
-                                {rule.is_active ? 'Active' : 'Inactive'}
-                              </span>
+                    {rules.length === 0 ? (
+                      <EmptyState icon="shield" title="No routing rules" message="No routing rules configured" />
+                    ) : (
+                      rules.map(rule => (
+                        <div key={rule.id} className={`border rounded-lg p-4 ${rule.is_active ? 'border-gray-200' : 'border-gray-200 opacity-50'}`}>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-400">#{rule.priority}</span>
+                                <p className="text-sm font-medium text-gray-900">{rule.rule_name}</p>
+                                <span className={`badge ${rule.is_active ? 'badge-success' : 'badge-gray'}`}>
+                                  {rule.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-500 mt-1">
+                                When <span className="font-medium">{rule.condition_type.replace(/_/g, ' ').toLowerCase()}</span>
+                                {rule.condition_value && <> = <span className="font-mono">{rule.condition_value}</span></>}
+                                {' → '}
+                                <span className="font-medium">{rule.action}</span> to <span className="text-primary-600">{rule.target_gateway}</span>
+                              </p>
                             </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                              When <span className="font-medium">{rule.condition_type.replace(/_/g, ' ').toLowerCase()}</span>
-                              {rule.condition_value && <> = <span className="font-mono">{rule.condition_value}</span></>}
-                              {' → '}
-                              <span className="font-medium">{rule.action}</span> to <span className="text-primary-600">{rule.target_gateway}</span>
-                            </p>
+                            <span className="text-xs text-gray-400 font-mono">{rule.rule_id}</span>
                           </div>
-                          <span className="text-xs text-gray-400 font-mono">{rule.rule_id}</span>
                         </div>
-                      </div>
-                    ))}
-                    {rules.length === 0 && (
-                      <div className="text-center py-8 text-gray-500">No routing rules configured</div>
+                      ))
                     )}
                   </div>
 
@@ -504,7 +524,7 @@ export default function RoutingPage() {
                             {canWrite && (
                               <button onClick={() => handleResolveOutage(o.id, o.gateway_id)}
                                 className="px-3 py-1.5 bg-success-600 text-white rounded-lg text-xs hover:bg-success-700">
-                                Resolve
+                                Mark Resolved
                               </button>
                             )}
                           </div>
@@ -602,6 +622,18 @@ export default function RoutingPage() {
           )}
         </div>
       </div>
+
+      {/* Resolve Outage Confirm Modal */}
+      <ConfirmModal
+        open={resolveConfirm.open}
+        onClose={() => setResolveConfirm({ open: false, outageId: null, gatewayId: null })}
+        onConfirm={confirmResolveOutage}
+        title="Mark Outage as Resolved"
+        message="Are you sure you want to mark this outage as resolved? Traffic will be rerouted to this gateway."
+        confirmText="Mark Resolved"
+        cancelText="Cancel"
+        variant="primary"
+      />
     </div>
   );
 }

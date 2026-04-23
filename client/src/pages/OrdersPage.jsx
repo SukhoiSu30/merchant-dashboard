@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ordersAPI } from '../services/api';
+import { useToast } from '../context/ToastContext';
+import { TableSkeleton } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
+import { downloadCSV } from '../utils/export';
 import { Search, Filter, Download, ChevronLeft, ChevronRight, RefreshCw, X } from 'lucide-react';
 
 function StatusBadge({ status }) {
@@ -19,6 +23,7 @@ const METHODS = ['CARD','UPI','NETBANKING','WALLET','EMI','BNPL'];
 
 export default function OrdersPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [orders, setOrders] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
@@ -44,7 +49,7 @@ export default function OrdersPage() {
       setOrders(data.orders);
       setPagination(data.pagination);
     } catch (err) {
-      console.error('Failed to fetch orders:', err);
+      toast.error('Failed to load orders');
     } finally {
       setLoading(false);
     }
@@ -104,6 +109,7 @@ export default function OrdersPage() {
           <button onClick={() => fetchOrders(pagination.page)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg">
             <RefreshCw size={18} />
           </button>
+          <button onClick={() => downloadCSV(orders, 'orders_export.csv')} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg" title="Export CSV"><Download size={18} /></button>
         </div>
 
         {/* Advanced Filters */}
@@ -159,9 +165,9 @@ export default function OrdersPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-500">Loading orders...</td></tr>
+                <tr><td colSpan={7}><TableSkeleton rows={8} cols={7} /></td></tr>
               ) : orders.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-500">No orders found</td></tr>
+                <tr><td colSpan={7}><EmptyState icon="search" title="No orders found" description="Try adjusting your search or filters" /></td></tr>
               ) : (
                 orders.map((order) => (
                   <tr

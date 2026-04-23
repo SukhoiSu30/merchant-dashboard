@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { usersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Search, Plus, X, Lock, Unlock, Edit2, Shield, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Plus, X, Lock, Unlock, Edit2, Shield, RefreshCw, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { TableSkeleton } from '../components/ui/Skeleton';
+import EmptyState from '../components/ui/EmptyState';
+import ConfirmModal from '../components/ui/ConfirmModal';
+import { downloadCSV } from '../utils/export';
 
 function StatusBadge({ status }) {
   const styles = { ACTIVE: 'badge-success', INACTIVE: 'badge-danger', LOCKED: 'badge-warning', PENDING: 'badge-info' };
@@ -10,6 +15,7 @@ function StatusBadge({ status }) {
 
 export default function UsersPage() {
   const { hasPermission } = useAuth();
+  const toast = useToast();
   const canWrite = hasPermission('users', 'READ_WRITE');
   const [users, setUsers] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
@@ -20,6 +26,7 @@ export default function UsersPage() {
   const [createForm, setCreateForm] = useState({ email: '', password: '', first_name: '', last_name: '', role_id: '' });
   const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({ open: false, userId: null, userName: '', action: '', loading: false });
 
   const fetchUsers = async (page = 1) => {
     setLoading(true);
@@ -29,7 +36,7 @@ export default function UsersPage() {
       const { data } = await usersAPI.list(params);
       setUsers(data.users);
       setPagination(data.pagination);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to load users'); }
     finally { setLoading(false); }
   };
 
@@ -37,7 +44,7 @@ export default function UsersPage() {
     try {
       const { data } = await usersAPI.roles();
       setRoles(data.roles);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to load roles'); }
   };
 
   useEffect(() => { fetchUsers(); fetchRoles(); }, []);
@@ -48,6 +55,7 @@ export default function UsersPage() {
     setCreating(true);
     try {
       await usersAPI.create(createForm);
+      toast.success('User created successfully');
       setShowCreate(false);
       setCreateForm({ email: '', password: '', first_name: '', last_name: '', role_id: '' });
       fetchUsers();
@@ -56,13 +64,30 @@ export default function UsersPage() {
     } finally { setCreating(false); }
   };
 
-  const handleStatusChange = async (userId, action) => {
+  const handleStatusChange = (userId, userName, action) => {
+    setConfirmModal({
+      open: true,
+      userId,
+      userName,
+      action,
+      loading: false
+    });
+  };
+
+  const handleConfirmStatusChange = async () => {
+    setConfirmModal({ ...confirmModal, loading: true });
     try {
+      const { userId, action } = confirmModal;
       if (action === 'lock') await usersAPI.lock(userId);
       else if (action === 'unlock') await usersAPI.unlock(userId);
       else await usersAPI.update(userId, { status: action });
+      toast.success('User status updated');
       fetchUsers(pagination.page);
-    } catch (err) { console.error(err); }
+      setConfirmModal({ open: false, userId: null, userName: '', action: '', loading: false });
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update user status');
+      setConfirmModal({ ...confirmModal, loading: false });
+    }
   };
 
   return (
@@ -139,31 +164,34 @@ export default function UsersPage() {
               placeholder="Search users..." className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm" />
           </div>
           <button type="button" onClick={() => fetchUsers()} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"><RefreshCw size={18} /></button>
+          {users.length > 0 && (
+            <button onClick={() => downloadCSV(users, 'users.csv')} className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"><Download size={16} /> Export</button>
+          )}
         </form>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">User</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Role</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Status</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">2FA</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Last Login</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Created</th>
-                {canWrite && <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Actions</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-500">Loading...</td></tr>
-              ) : users.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-500">No users found</td></tr>
-              ) : (
-                users.map((u) => (
+      {loading ? (
+        <TableSkeleton rows={5} cols={7} />
+      ) : users.length === 0 ? (
+        <EmptyState icon="search" title="No users found" description="Create a new user to get started" />
+      ) : (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">User</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Role</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Status</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">2FA</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Last Login</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Created</th>
+                  {canWrite && <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Actions</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {users.map((u) => (
                   <tr key={u.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
@@ -196,25 +224,25 @@ export default function UsersPage() {
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-1">
                           {u.status === 'ACTIVE' && (
-                            <button onClick={() => handleStatusChange(u.id, 'lock')} title="Lock user"
+                            <button onClick={() => handleStatusChange(u.id, `${u.first_name} ${u.last_name}`, 'lock')} title="Lock user"
                               className="p-1.5 text-gray-400 hover:text-warning-600 hover:bg-warning-50 rounded">
                               <Lock size={14} />
                             </button>
                           )}
                           {u.status === 'LOCKED' && (
-                            <button onClick={() => handleStatusChange(u.id, 'unlock')} title="Unlock user"
+                            <button onClick={() => handleStatusChange(u.id, `${u.first_name} ${u.last_name}`, 'unlock')} title="Unlock user"
                               className="p-1.5 text-gray-400 hover:text-success-600 hover:bg-success-50 rounded">
                               <Unlock size={14} />
                             </button>
                           )}
                           {u.status === 'ACTIVE' && (
-                            <button onClick={() => handleStatusChange(u.id, 'INACTIVE')} title="Disable user"
+                            <button onClick={() => handleStatusChange(u.id, `${u.first_name} ${u.last_name}`, 'INACTIVE')} title="Disable user"
                               className="p-1.5 text-gray-400 hover:text-danger-600 hover:bg-danger-50 rounded">
                               <X size={14} />
                             </button>
                           )}
                           {u.status === 'INACTIVE' && (
-                            <button onClick={() => handleStatusChange(u.id, 'ACTIVE')} title="Enable user"
+                            <button onClick={() => handleStatusChange(u.id, `${u.first_name} ${u.last_name}`, 'ACTIVE')} title="Enable user"
                               className="p-1.5 text-gray-400 hover:text-success-600 hover:bg-success-50 rounded">
                               <Edit2 size={14} />
                             </button>
@@ -223,23 +251,36 @@ export default function UsersPage() {
                       </td>
                     )}
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-200">
-            <span className="text-sm text-gray-500">Page {pagination.page} of {pagination.totalPages}</span>
-            <div className="flex gap-1">
-              <button onClick={() => fetchUsers(pagination.page - 1)} disabled={pagination.page <= 1}
-                className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30"><ChevronLeft size={18} /></button>
-              <button onClick={() => fetchUsers(pagination.page + 1)} disabled={pagination.page >= pagination.totalPages}
-                className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30"><ChevronRight size={18} /></button>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+          {pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between px-5 py-3 border-t border-gray-200">
+              <span className="text-sm text-gray-500">Page {pagination.page} of {pagination.totalPages}</span>
+              <div className="flex gap-1">
+                <button onClick={() => fetchUsers(pagination.page - 1)} disabled={pagination.page <= 1}
+                  className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30"><ChevronLeft size={18} /></button>
+                <button onClick={() => fetchUsers(pagination.page + 1)} disabled={pagination.page >= pagination.totalPages}
+                  className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30"><ChevronRight size={18} /></button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Confirm Status Change Modal */}
+      <ConfirmModal
+        open={confirmModal.open}
+        onClose={() => setConfirmModal({ open: false, userId: null, userName: '', action: '', loading: false })}
+        onConfirm={handleConfirmStatusChange}
+        title={confirmModal.action === 'lock' ? 'Lock User' : confirmModal.action === 'unlock' ? 'Unlock User' : confirmModal.action === 'INACTIVE' ? 'Disable User' : 'Enable User'}
+        message={`Are you sure you want to ${confirmModal.action === 'lock' ? 'lock' : confirmModal.action === 'unlock' ? 'unlock' : confirmModal.action === 'INACTIVE' ? 'disable' : 'enable'} ${confirmModal.userName}?`}
+        confirmText={confirmModal.action === 'lock' ? 'Lock' : confirmModal.action === 'unlock' ? 'Unlock' : confirmModal.action === 'INACTIVE' ? 'Disable' : 'Enable'}
+        cancelText="Cancel"
+        variant={confirmModal.action === 'INACTIVE' ? 'danger' : 'warning'}
+        loading={confirmModal.loading}
+      />
     </div>
   );
 }

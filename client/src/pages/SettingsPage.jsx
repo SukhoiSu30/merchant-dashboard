@@ -1,14 +1,19 @@
 import { useState, useEffect } from 'react';
 import { settingsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import {
   Settings, Globe, CreditCard, Webhook, Key, Save, RefreshCw,
   Plus, Trash2, TestTube2, ToggleLeft, ToggleRight, X, Eye, EyeOff,
   Clock, CheckCircle, XCircle, ExternalLink
 } from 'lucide-react';
+import { Skeleton } from '../components/ui/Skeleton';
+import EmptyState from '../components/ui/EmptyState';
+import ConfirmModal from '../components/ui/ConfirmModal';
 
 export default function SettingsPage() {
   const { hasPermission } = useAuth();
+  const toast = useToast();
   const canWrite = hasPermission('settings', 'READ_WRITE');
 
   const [activeTab, setActiveTab] = useState('general');
@@ -24,6 +29,7 @@ export default function SettingsPage() {
   const [webhookForm, setWebhookForm] = useState({ url: '', events: [], description: '' });
   const [webhookSaving, setWebhookSaving] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ open: false, webhookId: null });
 
   // API Keys
   const [apiKeys, setApiKeys] = useState([]);
@@ -56,7 +62,9 @@ export default function SettingsPage() {
         const { data } = await settingsAPI.auditLog({ limit: 50 });
         setAuditLogs(data.logs);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      toast.error('Failed to load settings. Please try again.');
+    }
     finally { setLoading(false); }
   };
 
@@ -66,8 +74,10 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       await settingsAPI.updateGeneral(general);
-      alert('Settings saved successfully');
-    } catch (err) { console.error(err); }
+      toast.success('Settings saved successfully');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to save settings');
+    }
     finally { setSaving(false); }
   };
 
@@ -78,24 +88,35 @@ export default function SettingsPage() {
       await settingsAPI.createWebhook(webhookForm);
       setShowWebhookForm(false);
       setWebhookForm({ url: '', events: [], description: '' });
+      toast.success('Webhook created successfully');
       fetchData();
-    } catch (err) { alert(err.response?.data?.error || 'Failed to create webhook'); }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to create webhook');
+    }
     finally { setWebhookSaving(false); }
   };
 
   const handleToggleWebhook = async (wh) => {
     try {
       await settingsAPI.updateWebhook(wh.id, { is_active: !wh.is_active });
+      toast.success(`Webhook ${wh.is_active ? 'disabled' : 'enabled'} successfully`);
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      toast.error('Failed to update webhook');
+    }
   };
 
-  const handleDeleteWebhook = async (wh) => {
-    if (!confirm(`Delete webhook ${wh.webhook_id}?`)) return;
+  const handleDeleteWebhook = async () => {
+    setConfirmModal({ ...confirmModal, loading: true });
     try {
-      await settingsAPI.deleteWebhook(wh.id);
+      await settingsAPI.deleteWebhook(confirmModal.webhookId);
+      toast.success('Webhook deleted successfully');
+      setConfirmModal({ open: false, webhookId: null, loading: false });
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      toast.error('Failed to delete webhook');
+      setConfirmModal({ ...confirmModal, loading: false });
+    }
   };
 
   const handleTestWebhook = async (wh) => {
@@ -103,7 +124,9 @@ export default function SettingsPage() {
     try {
       const { data } = await settingsAPI.testWebhook(wh.id);
       setTestResult({ id: wh.id, ...data.test });
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      toast.error('Failed to test webhook');
+    }
   };
 
   const toggleEvent = (event) => {
@@ -147,7 +170,14 @@ export default function SettingsPage() {
 
         <div className="p-5">
           {loading ? (
-            <div className="text-center py-12 text-gray-500">Loading...</div>
+            <div className="space-y-4">
+              <Skeleton height="20px" width="200px" className="mb-4" />
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} height="16px" width="100%" />
+                ))}
+              </div>
+            </div>
           ) : (
             <>
               {/* General Settings */}
@@ -287,10 +317,7 @@ export default function SettingsPage() {
 
                   {/* Webhook List */}
                   {webhooks.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">
-                      <Webhook size={32} className="mx-auto mb-2 text-gray-300" />
-                      <p>No webhooks configured</p>
-                    </div>
+                    <EmptyState icon="default" title="No webhooks configured" description="Add a webhook to receive real-time event notifications" />
                   ) : (
                     <div className="space-y-3">
                       {webhooks.map(wh => (
@@ -316,7 +343,7 @@ export default function SettingsPage() {
                                     : <ToggleLeft size={22} className="text-gray-300" />
                                   }
                                 </button>
-                                <button onClick={() => handleDeleteWebhook(wh)} title="Delete"
+                                <button onClick={() => setConfirmModal({ open: true, webhookId: wh.id })} title="Delete"
                                   className="p-1.5 text-gray-400 hover:text-danger-600 hover:bg-danger-50 rounded">
                                   <Trash2 size={14} />
                                 </button>
@@ -441,7 +468,7 @@ export default function SettingsPage() {
                     <button onClick={fetchData} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"><RefreshCw size={16} /></button>
                   </div>
                   {auditLogs.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">No audit logs found</div>
+                    <EmptyState icon="default" title="No audit logs found" description="Activity logs will appear here as you manage your settings" />
                   ) : (
                     <div className="space-y-1">
                       {auditLogs.map(log => (
@@ -470,6 +497,18 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirmModal.open}
+        onClose={() => setConfirmModal({ open: false, webhookId: null })}
+        onConfirm={handleDeleteWebhook}
+        title="Delete Webhook"
+        message="This action cannot be undone. The webhook endpoint will no longer receive event notifications."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        loading={confirmModal.loading}
+      />
     </div>
   );
 }

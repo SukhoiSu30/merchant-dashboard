@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { surchargeAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { TableSkeleton } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
 import {
   Plus, Trash2, Edit3, X, Save, RefreshCw, Calculator,
   ToggleLeft, ToggleRight, Percent, DollarSign
@@ -12,9 +16,11 @@ const GATEWAYS = ['Razorpay', 'Stripe', 'PayU', 'PhonePe', 'Paytm', 'Cashfree'];
 export default function SurchargePage() {
   const { hasPermission } = useAuth();
   const canWrite = hasPermission('gateways', 'READ_WRITE');
+  const toast = useToast();
 
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, rule: null });
 
   // Create/Edit modal
   const [showForm, setShowForm] = useState(false);
@@ -39,7 +45,7 @@ export default function SurchargePage() {
     try {
       const { data } = await surchargeAPI.list();
       setRules(data.rules);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to load surcharge rules'); }
     finally { setLoading(false); }
   };
 
@@ -79,21 +85,29 @@ export default function SurchargePage() {
     try {
       if (editingRule) {
         await surchargeAPI.update(editingRule.id, form);
+        toast.success('Rule updated successfully');
       } else {
         await surchargeAPI.create(form);
+        toast.success('Rule created successfully');
       }
       setShowForm(false);
       fetchRules();
-    } catch (err) { alert(err.response?.data?.error || 'Failed to save'); }
+    } catch (err) { toast.error(err.response?.data?.error || 'Failed to save rule'); }
     finally { setSaving(false); }
   };
 
   const handleDelete = async (rule) => {
-    if (!confirm(`Delete "${rule.rule_name}"?`)) return;
+    setDeleteConfirm({ open: true, rule });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm.rule) return;
     try {
-      await surchargeAPI.delete(rule.id);
+      await surchargeAPI.delete(deleteConfirm.rule.id);
+      toast.success('Rule deleted successfully');
+      setDeleteConfirm({ open: false, rule: null });
       fetchRules();
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to delete rule'); }
   };
 
   const handleCalculate = async () => {
@@ -104,7 +118,7 @@ export default function SurchargePage() {
         gateway: calcGateway || undefined,
       });
       setCalcResult(data);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to calculate surcharge'); }
   };
 
   return (
@@ -147,9 +161,9 @@ export default function SurchargePage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan={9} className="text-center py-12 text-gray-500">Loading...</td></tr>
+                <TableSkeleton rows={5} cols={9} />
               ) : rules.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-12 text-gray-500">No surcharge rules configured</td></tr>
+                <tr><td colSpan={9} className="text-center py-12"><EmptyState icon="payment" title="No surcharge rules" message="No surcharge rules configured" /></td></tr>
               ) : (
                 rules.map((rule) => (
                   <tr key={rule.id} className={`hover:bg-gray-50 ${!rule.is_active ? 'opacity-50' : ''}`}>
@@ -375,6 +389,18 @@ export default function SurchargePage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirm Modal */}
+      <ConfirmModal
+        open={deleteConfirm.open}
+        onClose={() => setDeleteConfirm({ open: false, rule: null })}
+        onConfirm={confirmDelete}
+        title="Delete Surcharge Rule"
+        message={`Are you sure you want to delete "${deleteConfirm.rule?.rule_name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ordersAPI } from '../services/api';
+import { useToast } from '../context/ToastContext';
 import { ArrowLeft, Copy, CheckCircle, XCircle, Clock, RefreshCw, CreditCard, Shield, FileText } from 'lucide-react';
 
 function StatusBadge({ status }) {
@@ -24,6 +25,7 @@ function InfoRow({ label, value, mono = false }) {
 export default function OrderDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('payment');
@@ -32,7 +34,7 @@ export default function OrderDetailPage() {
   useEffect(() => {
     ordersAPI.get(id)
       .then(({ data }) => setData(data))
-      .catch(console.error)
+      .catch(() => toast.error('Failed to load order details'))
       .finally(() => setLoading(false));
   }, [id]);
 

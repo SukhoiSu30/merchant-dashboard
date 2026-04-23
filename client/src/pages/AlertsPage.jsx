@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { alertsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { CardSkeleton } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
 import {
   Bell, Plus, X, Save, RefreshCw, Trash2, Edit3, Eye, CheckCircle,
   XCircle, AlertTriangle, AlertOctagon, Info, ToggleLeft, ToggleRight, Clock
@@ -27,9 +31,11 @@ function StatusBadge({ status }) {
 export default function AlertsPage() {
   const { hasPermission } = useAuth();
   const canWrite = hasPermission('monitoring', 'READ_WRITE');
+  const toast = useToast();
 
   const [activeTab, setActiveTab] = useState('history');
   const [loading, setLoading] = useState(true);
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, rule: null });
 
   // Alert history
   const [alerts, setAlerts] = useState([]);
@@ -72,7 +78,7 @@ export default function AlertsPage() {
         setSeverities(typesRes.data.severities);
         setChannels(typesRes.data.channels);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to load alerts'); }
     finally { setLoading(false); }
   };
 
@@ -81,8 +87,9 @@ export default function AlertsPage() {
   const handleAcknowledge = async (alertId) => {
     try {
       await alertsAPI.acknowledge(alertId);
+      toast.success('Alert acknowledged');
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to acknowledge alert'); }
   };
 
   const handleCreateRule = async () => {
@@ -90,6 +97,7 @@ export default function AlertsPage() {
     setRuleSaving(true);
     try {
       await alertsAPI.createRule(ruleForm);
+      toast.success('Alert rule created successfully');
       setShowRuleForm(false);
       setRuleForm({
         alert_name: '', alert_type: '', severity: 'HIGH', threshold: '',
@@ -97,23 +105,30 @@ export default function AlertsPage() {
         cooldown_minutes: 15, description: '',
       });
       fetchData();
-    } catch (err) { alert(err.response?.data?.error || 'Failed'); }
+    } catch (err) { toast.error(err.response?.data?.error || 'Failed to create rule'); }
     finally { setRuleSaving(false); }
   };
 
   const handleDeleteRule = async (rule) => {
-    if (!confirm(`Delete alert rule "${rule.alert_name}"?`)) return;
+    setDeleteConfirm({ open: true, rule });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm.rule) return;
     try {
-      await alertsAPI.deleteRule(rule.id);
+      await alertsAPI.deleteRule(deleteConfirm.rule.id);
+      toast.success('Alert rule deleted successfully');
+      setDeleteConfirm({ open: false, rule: null });
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to delete rule'); }
   };
 
   const handleToggleRule = async (rule) => {
     try {
       await alertsAPI.updateRule(rule.id, { is_active: !rule.is_active });
+      toast.success(rule.is_active ? 'Alert rule disabled' : 'Alert rule enabled');
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to update rule'); }
   };
 
   const toggleChannel = (ch) => {
@@ -202,7 +217,11 @@ export default function AlertsPage() {
 
         <div className="p-5">
           {loading ? (
-            <div className="text-center py-12 text-gray-500">Loading...</div>
+            <div className="space-y-4">
+              <CardSkeleton height={120} />
+              <CardSkeleton height={120} />
+              <CardSkeleton height={120} />
+            </div>
           ) : (
             <>
               {/* Alert History */}
@@ -229,10 +248,7 @@ export default function AlertsPage() {
 
                   {/* Alert Timeline */}
                   {alerts.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">
-                      <CheckCircle size={32} className="mx-auto mb-2 text-success-300" />
-                      <p>No alerts matching your filters</p>
-                    </div>
+                    <EmptyState icon="alert" title="No alerts" message="No alerts matching your filters" />
                   ) : (
                     <div className="space-y-3">
                       {alerts.map(alert => (
@@ -293,7 +309,7 @@ export default function AlertsPage() {
                   </div>
 
                   {rules.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">No alert rules configured</div>
+                    <EmptyState icon="bell" title="No alert rules" message="No alert rules configured" />
                   ) : (
                     <div className="space-y-3">
                       {rules.map(rule => (
@@ -469,6 +485,18 @@ export default function AlertsPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirm Modal */}
+      <ConfirmModal
+        open={deleteConfirm.open}
+        onClose={() => setDeleteConfirm({ open: false, rule: null })}
+        onConfirm={confirmDelete}
+        title="Delete Alert Rule"
+        message={`Are you sure you want to delete "${deleteConfirm.rule?.alert_name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </div>
   );
 }

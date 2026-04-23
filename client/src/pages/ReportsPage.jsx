@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { reportsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import {
   FileText, Plus, X, Download, RefreshCw, Clock, Calendar,
   BarChart3, TrendingUp, CreditCard, Shield, Eye, Play
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { CardSkeleton, Skeleton } from '../components/ui/Skeleton';
+import EmptyState from '../components/ui/EmptyState';
 
 export default function ReportsPage() {
   const { hasPermission } = useAuth();
+  const toast = useToast();
   const canWrite = hasPermission('monitoring', 'READ_WRITE');
 
   const [activeTab, setActiveTab] = useState('generate');
@@ -47,7 +51,9 @@ export default function ReportsPage() {
         const { data } = await reportsAPI.scheduled();
         setScheduledReports(data.scheduled);
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      toast.error('Failed to load report data. Please try again.');
+    }
     finally { setLoading(false); }
   };
 
@@ -65,7 +71,10 @@ export default function ReportsPage() {
         gateway: gatewayFilter || undefined,
       });
       setGeneratedReport(data.report);
-    } catch (err) { alert(err.response?.data?.error || 'Failed to generate report'); }
+      toast.success(`${selectedTemplate.name} generated successfully`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to generate report');
+    }
     finally { setGenerating(false); }
   };
 
@@ -125,7 +134,20 @@ export default function ReportsPage() {
 
         <div className="p-5">
           {loading ? (
-            <div className="text-center py-12 text-gray-500">Loading...</div>
+            <div className="space-y-6">
+              <CardSkeleton count={9} />
+              <div className="bg-white rounded-lg p-4">
+                <Skeleton height="20px" width="100px" className="mb-4" />
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <Skeleton height="16px" width="60%" />
+                      <Skeleton height="16px" width="30%" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           ) : (
             <>
               {/* Generate Report */}
@@ -339,7 +361,7 @@ export default function ReportsPage() {
               {activeTab === 'history' && (
                 <div className="space-y-3">
                   {reportHistory.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">No reports generated yet</div>
+                    <EmptyState icon="file" title="No reports generated yet" description="Generate your first report to see it here" />
                   ) : (
                     reportHistory.map(report => (
                       <div key={report.report_id} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between hover:shadow-sm">
@@ -373,7 +395,7 @@ export default function ReportsPage() {
                   </div>
 
                   {scheduledReports.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">No scheduled reports</div>
+                    <EmptyState icon="file" title="No scheduled reports" description="Set up scheduled reports to receive automated updates" />
                   ) : (
                     <div className="space-y-3">
                       {scheduledReports.map(sched => (

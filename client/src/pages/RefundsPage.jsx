@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { refundsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Search, Filter, ChevronLeft, ChevronRight, RefreshCw, Plus, X } from 'lucide-react';
+import { Search, Filter, ChevronLeft, ChevronRight, RefreshCw, Plus, X, Download } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { TableSkeleton } from '../components/ui/Skeleton';
+import EmptyState from '../components/ui/EmptyState';
+import { downloadCSV } from '../utils/export';
 
 function StatusBadge({ status }) {
   const styles = { SUCCESS: 'badge-success', PENDING: 'badge-warning', FAILURE: 'badge-danger', MANUAL_REVIEW: 'badge-info' };
@@ -10,6 +14,7 @@ function StatusBadge({ status }) {
 
 export default function RefundsPage() {
   const { hasPermission } = useAuth();
+  const toast = useToast();
   const [refunds, setRefunds] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -30,7 +35,7 @@ export default function RefundsPage() {
       setRefunds(data.refunds);
       setPagination(data.pagination);
     } catch (err) {
-      console.error(err);
+      toast.error('Failed to load refunds');
     } finally {
       setLoading(false);
     }
@@ -44,6 +49,7 @@ export default function RefundsPage() {
     setCreating(true);
     try {
       await refundsAPI.create(createForm);
+      toast.success('Refund created successfully');
       setShowCreate(false);
       setCreateForm({ order_id: '', amount: '', reason: '', refund_type: 'FULL' });
       fetchRefunds();
@@ -131,32 +137,35 @@ export default function RefundsPage() {
             <option value="MANUAL_REVIEW">Manual Review</option>
           </select>
           <button onClick={() => fetchRefunds()} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"><RefreshCw size={18} /></button>
+          {refunds.length > 0 && (
+            <button onClick={() => downloadCSV(refunds, 'refunds.csv')} className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"><Download size={16} /> Export</button>
+          )}
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Refund ID</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Order</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Amount</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Type</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Status</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Reason</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Initiated By</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-500">Loading...</td></tr>
-              ) : refunds.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-500">No refunds found</td></tr>
-              ) : (
-                refunds.map((r) => (
+      {loading ? (
+        <TableSkeleton rows={5} cols={8} />
+      ) : refunds.length === 0 ? (
+        <EmptyState icon="payment" title="No refunds found" description="Create a new refund to get started" />
+      ) : (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Refund ID</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Order</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Amount</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Type</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Status</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Reason</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Initiated By</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {refunds.map((r) => (
                   <tr key={r.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 text-sm font-mono text-primary-600">{r.refund_id}</td>
                     <td className="px-5 py-3 text-sm font-mono text-gray-600">{r.order_code}</td>
@@ -167,23 +176,23 @@ export default function RefundsPage() {
                     <td className="px-5 py-3 text-sm text-gray-500">{r.initiated_by_email || '—'}</td>
                     <td className="px-5 py-3 text-sm text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-200">
-            <span className="text-sm text-gray-500">Page {pagination.page} of {pagination.totalPages}</span>
-            <div className="flex gap-1">
-              <button onClick={() => fetchRefunds(pagination.page - 1)} disabled={pagination.page <= 1}
-                className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30"><ChevronLeft size={18} /></button>
-              <button onClick={() => fetchRefunds(pagination.page + 1)} disabled={pagination.page >= pagination.totalPages}
-                className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30"><ChevronRight size={18} /></button>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+          {pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between px-5 py-3 border-t border-gray-200">
+              <span className="text-sm text-gray-500">Page {pagination.page} of {pagination.totalPages}</span>
+              <div className="flex gap-1">
+                <button onClick={() => fetchRefunds(pagination.page - 1)} disabled={pagination.page <= 1}
+                  className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30"><ChevronLeft size={18} /></button>
+                <button onClick={() => fetchRefunds(pagination.page + 1)} disabled={pagination.page >= pagination.totalPages}
+                  className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30"><ChevronRight size={18} /></button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

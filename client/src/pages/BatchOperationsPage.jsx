@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { batchAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { TableSkeleton } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
 import {
   Search, RefreshCw, ChevronLeft, ChevronRight, Upload, Download,
   Eye, X, FileText, CheckCircle, XCircle, Clock, AlertTriangle
@@ -17,6 +20,7 @@ function StatusBadge({ status }) {
 export default function BatchOperationsPage() {
   const { hasPermission } = useAuth();
   const canWrite = hasPermission('batch_operations', 'READ_WRITE');
+  const toast = useToast();
 
   const [batches, setBatches] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
@@ -48,7 +52,7 @@ export default function BatchOperationsPage() {
       const { data } = await batchAPI.list(params);
       setBatches(data.batches);
       setPagination(data.pagination);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to load batch operations'); }
     finally { setLoading(false); }
   };
 
@@ -56,7 +60,7 @@ export default function BatchOperationsPage() {
     try {
       const { data } = await batchAPI.types();
       setBatchTypes(data.types);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to load batch types'); }
   };
 
   useEffect(() => { fetchBatches(); fetchTypes(); }, []);
@@ -74,10 +78,10 @@ export default function BatchOperationsPage() {
   };
 
   const handleUpload = async () => {
-    if (!uploadForm.batch_type) return alert('Select a batch type');
+    if (!uploadForm.batch_type) return toast.warning('Please select a batch type');
     const data = parseCsv(csvData);
-    if (data.length === 0) return alert('Enter valid CSV data (header + at least 1 row)');
-    if (data.length > 1000) return alert('Maximum 1000 rows per batch');
+    if (data.length === 0) return toast.warning('Enter valid CSV data (header + at least 1 row)');
+    if (data.length > 1000) return toast.warning('Maximum 1000 rows per batch');
 
     setUploading(true);
     try {
@@ -88,11 +92,17 @@ export default function BatchOperationsPage() {
         data,
       });
       setUploadResult(result);
+      toast.success('Batch uploaded successfully');
       fetchBatches();
     } catch (err) {
       const msg = err.response?.data?.error || 'Upload failed';
       const details = err.response?.data?.details;
-      alert(details ? `${msg}\n${details.map(d => `Row ${d.row}: ${d.field} — ${d.message}`).join('\n')}` : msg);
+      if (details) {
+        const detailMsg = details.map(d => `Row ${d.row}: ${d.field} — ${d.message}`).join(' | ');
+        toast.error(`${msg}: ${detailMsg}`);
+      } else {
+        toast.error(msg);
+      }
     }
     finally { setUploading(false); }
   };
@@ -103,7 +113,7 @@ export default function BatchOperationsPage() {
     try {
       const { data } = await batchAPI.get(batch.id);
       setDetailData(data);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to load batch details'); }
     finally { setDetailLoading(false); }
   };
 
@@ -117,7 +127,7 @@ export default function BatchOperationsPage() {
       a.download = `${data.batch_id}_results.json`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to download batch results'); }
   };
 
   const closeUpload = () => {
@@ -198,9 +208,9 @@ export default function BatchOperationsPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan={9} className="text-center py-12 text-gray-500">Loading...</td></tr>
+                <TableSkeleton rows={5} cols={9} />
               ) : batches.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-12 text-gray-500">No batch operations found</td></tr>
+                <tr><td colSpan={9} className="text-center py-12"><EmptyState icon="file" title="No batch operations" message="No batch operations found" /></td></tr>
               ) : (
                 batches.map((b) => (
                   <tr key={b.id} className="hover:bg-gray-50">
@@ -415,7 +425,11 @@ export default function BatchOperationsPage() {
             </div>
 
             {detailLoading ? (
-              <div className="p-8 text-center text-gray-500">Loading...</div>
+              <div className="p-8 space-y-4">
+                <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+              </div>
             ) : detailData && (
               <div className="p-5 space-y-4">
                 <div className="grid grid-cols-2 gap-4">

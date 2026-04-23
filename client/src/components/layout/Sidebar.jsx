@@ -2,10 +2,10 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard, ShoppingCart, ArrowLeftRight, RotateCcw, Users,
-  Settings, Shield, Bell, FileText, CreditCard, Webhook, ChevronDown,
-  ChevronRight, Zap, AlertTriangle, Upload, Percent, GitBranch
+  Settings, Shield, Bell, FileText, CreditCard, ChevronDown,
+  ChevronRight, Zap, AlertTriangle, Upload, Percent, GitBranch, X
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const navGroups = [
   {
@@ -50,21 +50,26 @@ const navGroups = [
   },
 ];
 
-export default function Sidebar({ collapsed, onToggle }) {
+export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
   const { hasPermission } = useAuth();
   const location = useLocation();
   const [expandedGroups, setExpandedGroups] = useState(
     navGroups.reduce((acc, g) => ({ ...acc, [g.label]: true }), {})
   );
 
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    if (mobileOpen && onMobileClose) onMobileClose();
+  }, [location.pathname]);
+
   const toggleGroup = (label) => {
     setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
   };
 
-  return (
-    <aside className={`fixed left-0 top-0 h-full bg-sidebar-bg text-white z-30 transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'} flex flex-col`}>
+  const sidebarContent = (
+    <>
       {/* Logo */}
-      <div className="h-16 flex items-center px-4 border-b border-white/10">
+      <div className="h-16 flex items-center justify-between px-4 border-b border-white/10 flex-shrink-0">
         {!collapsed && (
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center font-bold text-sm">JP</div>
@@ -73,6 +78,12 @@ export default function Sidebar({ collapsed, onToggle }) {
         )}
         {collapsed && (
           <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center font-bold text-sm mx-auto">JP</div>
+        )}
+        {/* Mobile close button */}
+        {mobileOpen && (
+          <button onClick={onMobileClose} className="lg:hidden text-gray-400 hover:text-white p-1">
+            <X size={20} />
+          </button>
         )}
       </div>
 
@@ -119,13 +130,32 @@ export default function Sidebar({ collapsed, onToggle }) {
         })}
       </nav>
 
-      {/* Collapse toggle */}
+      {/* Collapse toggle — desktop only */}
       <button
         onClick={onToggle}
-        className="h-12 flex items-center justify-center border-t border-white/10 text-gray-400 hover:text-white transition-colors"
+        className="hidden lg:flex h-12 items-center justify-center border-t border-white/10 text-gray-400 hover:text-white transition-colors flex-shrink-0"
       >
         {collapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} className="rotate-90" />}
       </button>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <aside className={`hidden lg:flex fixed left-0 top-0 h-full bg-sidebar-bg text-white z-30 transition-all duration-300 ${collapsed ? 'w-16' : 'w-64'} flex-col`}>
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile Overlay */}
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-black/60 sidebar-overlay" onClick={onMobileClose} />
+          <aside className="relative w-72 h-full bg-sidebar-bg text-white flex flex-col shadow-2xl">
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

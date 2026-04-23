@@ -38,12 +38,18 @@ function ProtectedRoute({ children }) {
 
 function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
-      <div className={`transition-all duration-300 ${collapsed ? 'ml-16' : 'ml-64'}`}>
-        <Header />
+      <Sidebar
+        collapsed={collapsed}
+        onToggle={() => setCollapsed(!collapsed)}
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+      />
+      <div className={`transition-all duration-300 ${collapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
+        <Header onMenuToggle={() => setMobileOpen(!mobileOpen)} />
         <main className="p-6">
           <Routes>
             <Route path="/dashboard" element={<DashboardPage />} />

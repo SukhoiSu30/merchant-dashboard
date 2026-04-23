@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { chargebacksAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Search, RefreshCw, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, XCircle, Eye, X } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { Search, RefreshCw, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, XCircle, Eye, X, Download } from 'lucide-react';
+import { TableSkeleton, CardSkeleton } from '../components/ui/Skeleton';
+import { EmptyState } from '../components/ui/EmptyState';
+import { downloadCSV } from '../utils/export';
 
 function StatusBadge({ status }) {
   const styles = {
@@ -17,6 +21,7 @@ function StatusBadge({ status }) {
 
 export default function ChargebacksPage() {
   const { hasPermission } = useAuth();
+  const toast = useToast();
   const canWrite = hasPermission('chargebacks', 'READ_WRITE');
   const [chargebacks, setChargebacks] = useState([]);
   const [stats, setStats] = useState(null);
@@ -46,7 +51,7 @@ export default function ChargebacksPage() {
       setChargebacks(cbRes.data.chargebacks);
       setPagination(cbRes.data.pagination);
       setStats(statsRes.data);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to fetch chargebacks'); }
     finally { setLoading(false); }
   };
 
@@ -59,7 +64,7 @@ export default function ChargebacksPage() {
       const { data } = await chargebacksAPI.get(cb.chargeback_id);
       setDetailData(data);
       setUpdateStatus(data.chargeback.status);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to load chargeback details'); }
     finally { setDetailLoading(false); }
   };
 
@@ -68,10 +73,11 @@ export default function ChargebacksPage() {
     setUpdating(true);
     try {
       await chargebacksAPI.updateStatus(detailData.chargeback.id, { status: updateStatus, notes: updateNotes });
+      toast.success('Chargeback status updated successfully');
       setSelectedCB(null);
       setDetailData(null);
       fetchData(pagination.page);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to update chargeback status'); }
     finally { setUpdating(false); }
   };
 
@@ -129,6 +135,7 @@ export default function ChargebacksPage() {
             <option value="RESOLVED_IN_CUSTOMER_FAVOUR">Lost</option>
           </select>
           <button onClick={() => fetchData()} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"><RefreshCw size={18} /></button>
+          <button onClick={() => downloadCSV(chargebacks, 'chargebacks')} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg" title="Export as CSV"><Download size={18} /></button>
         </div>
       </div>
 
@@ -150,9 +157,9 @@ export default function ChargebacksPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-500">Loading...</td></tr>
+                <tr><td colSpan={8}><TableSkeleton rows={5} columns={8} /></td></tr>
               ) : chargebacks.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-500">No chargebacks found</td></tr>
+                <tr><td colSpan={8} className="p-8"><EmptyState title="No chargebacks found" description="There are no chargebacks to display at the moment." /></td></tr>
               ) : (
                 chargebacks.map((cb) => (
                   <tr key={cb.id} className="hover:bg-gray-50">

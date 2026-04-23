@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { transactionsAPI } from '../services/api';
-import { Search, Filter, RefreshCw, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
+import { Search, Filter, RefreshCw, ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Activity, Download } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { TableSkeleton, CardSkeleton } from '../components/ui/Skeleton';
+import EmptyState from '../components/ui/EmptyState';
+import { downloadCSV } from '../utils/export';
 
 function StatusBadge({ status }) {
   const styles = { SUCCESS: 'badge-success', PENDING: 'badge-warning', FAILED: 'badge-danger' };
@@ -18,6 +22,7 @@ const METHODS = ['CARD','UPI','NETBANKING','WALLET','EMI','BNPL'];
 
 export default function TransactionsPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [transactions, setTransactions] = useState([]);
   const [stats, setStats] = useState(null);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
@@ -39,7 +44,7 @@ export default function TransactionsPage() {
       setTransactions(txnRes.data.transactions);
       setPagination(txnRes.data.pagination);
       setStats(statsRes.data);
-    } catch (err) { console.error(err); }
+    } catch (err) { toast.error('Failed to load transactions'); }
     finally { setLoading(false); }
   };
 
@@ -57,7 +62,9 @@ export default function TransactionsPage() {
       </div>
 
       {/* Stats Cards */}
-      {stats && (
+      {loading && !stats ? (
+        <CardSkeleton count={4} />
+      ) : stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <div className="flex items-center gap-2 text-gray-500 text-xs mb-1"><Activity size={14} /> Total</div>
@@ -92,6 +99,9 @@ export default function TransactionsPage() {
             <Filter size={16} /> Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
           </button>
           <button onClick={() => fetchData(pagination.page)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"><RefreshCw size={18} /></button>
+          {transactions.length > 0 && (
+            <button onClick={() => downloadCSV(transactions, 'transactions.csv')} className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"><Download size={16} /> Export</button>
+          )}
         </div>
         {showFilters && (
           <div className="border-t border-gray-100 p-4">
@@ -122,28 +132,28 @@ export default function TransactionsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Txn ID</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Order</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Type</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Amount</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Gateway</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Method</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Status</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-500">Loading...</td></tr>
-              ) : transactions.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-500">No transactions found</td></tr>
-              ) : (
-                transactions.map((txn) => (
+      {loading ? (
+        <TableSkeleton rows={5} cols={8} />
+      ) : transactions.length === 0 ? (
+        <EmptyState icon="search" title="No transactions found" description="Try adjusting your filters or date range" />
+      ) : (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Txn ID</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Order</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Type</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Amount</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Gateway</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Method</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Status</th>
+                  <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-3">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {transactions.map((txn) => (
                   <tr key={txn.id} onClick={() => navigate(`/orders/${txn.order_code}`)} className="hover:bg-gray-50 cursor-pointer">
                     <td className="px-5 py-3 text-sm font-mono text-primary-600">{txn.txn_id}</td>
                     <td className="px-5 py-3 text-sm font-mono text-gray-600">{txn.order_code}</td>
@@ -154,21 +164,21 @@ export default function TransactionsPage() {
                     <td className="px-5 py-3"><StatusBadge status={txn.status} /></td>
                     <td className="px-5 py-3 text-sm text-gray-500">{new Date(txn.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-200">
-            <span className="text-sm text-gray-500">Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)</span>
-            <div className="flex gap-1">
-              <button onClick={() => fetchData(pagination.page - 1)} disabled={pagination.page <= 1} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30"><ChevronLeft size={18} /></button>
-              <button onClick={() => fetchData(pagination.page + 1)} disabled={pagination.page >= pagination.totalPages} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30"><ChevronRight size={18} /></button>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+          {pagination.totalPages > 1 && (
+            <div className="flex items-center justify-between px-5 py-3 border-t border-gray-200">
+              <span className="text-sm text-gray-500">Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)</span>
+              <div className="flex gap-1">
+                <button onClick={() => fetchData(pagination.page - 1)} disabled={pagination.page <= 1} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30"><ChevronLeft size={18} /></button>
+                <button onClick={() => fetchData(pagination.page + 1)} disabled={pagination.page >= pagination.totalPages} className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30"><ChevronRight size={18} /></button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
