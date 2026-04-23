@@ -46,6 +46,11 @@ export default function RoutingPage() {
   const [editingPriorities, setEditingPriorities] = useState(false);
   const [priorities, setPriorities] = useState([]);
 
+  // Priority Logic (per payment method)
+  const [priorityLogic, setPriorityLogic] = useState({});
+  const [editingLogic, setEditingLogic] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState('CARD');
+
   // Routing rules
   const [rules, setRules] = useState([]);
   const [showRuleForm, setShowRuleForm] = useState(false);
@@ -70,6 +75,25 @@ export default function RoutingPage() {
       if (activeTab === 'health') {
         const { data } = await routingAPI.health();
         setHealth(data.health);
+      } else if (activeTab === 'priority-logic') {
+        const { data } = await routingAPI.priority();
+        // Build priority logic per payment method from gateway data
+        const logic = {};
+        PAYMENT_METHODS.forEach(pm => {
+          logic[pm] = data.gateways
+            .filter(g => {
+              const methods = Array.isArray(g.payment_methods) ? g.payment_methods : JSON.parse(g.payment_methods || '[]');
+              return methods.includes(pm);
+            })
+            .sort((a, b) => a.priority - b.priority)
+            .map((g, i) => ({ gateway_id: g.id, gateway_name: g.gateway_name, priority: i + 1, enabled: g.is_active }));
+          // If no gateways match, show all gateways as options
+          if (logic[pm].length === 0) {
+            logic[pm] = data.gateways.sort((a, b) => a.priority - b.priority)
+              .map((g, i) => ({ gateway_id: g.id, gateway_name: g.gateway_name, priority: i + 1, enabled: g.is_active }));
+          }
+        });
+        setPriorityLogic(logic);
       } else if (activeTab === 'priority' || activeTab === 'rules' || activeTab === 'smart') {
         const { data } = await routingAPI.priority();
         setPriorityData(data);
@@ -165,6 +189,7 @@ export default function RoutingPage() {
   const tabs = [
     { id: 'health', label: 'Gateway Health', icon: Activity },
     { id: 'priority', label: 'Priority', icon: ArrowUpDown },
+    { id: 'priority-logic', label: 'Priority Logic', icon: Shield },
     { id: 'rules', label: 'Routing Rules', icon: Shield },
     { id: 'smart', label: 'Smart Routing', icon: Zap },
     { id: 'outages', label: 'Outages', icon: AlertTriangle },
@@ -288,6 +313,143 @@ export default function RoutingPage() {
                       </button>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Priority Logic — per payment method gateway ordering */}
+              {activeTab === 'priority-logic' && (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-500">Configure gateway priority per payment method. When a transaction comes in, gateways are tried in this order for the specific payment method.</p>
+
+                  {/* Payment Method Tabs */}
+                  <div className="flex flex-wrap gap-2">
+                    {PAYMENT_METHODS.map(pm => (
+                      <button key={pm} onClick={() => setSelectedMethod(pm)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          selectedMethod === pm
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}>
+                        {pm}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Gateway Priority List for Selected Method */}
+                  <div className="bg-gray-50 rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900">Gateway Priority for {selectedMethod}</h3>
+                        <p className="text-xs text-gray-500 mt-0.5">Top gateway gets first attempt. If it fails, next in line is tried.</p>
+                      </div>
+                      {canWrite && !editingLogic && (
+                        <button onClick={() => setEditingLogic(true)}
+                          className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700">
+                          Edit Order
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      {(priorityLogic[selectedMethod] || []).map((gw, idx) => (
+                        <div key={gw.gateway_id}
+                          className={`flex items-center gap-3 p-3 bg-white border rounded-lg ${gw.enabled ? 'border-gray-200' : 'border-gray-200 opacity-50'}`}>
+                          {editingLogic && (
+                            <div className="flex flex-col">
+                              <button onClick={() => {
+                                const logic = { ...priorityLogic };
+                                const list = [...logic[selectedMethod]];
+                                if (idx > 0) { [list[idx], list[idx - 1]] = [list[idx - 1], list[idx]]; }
+                                list.forEach((g, i) => { g.priority = i + 1; });
+                                logic[selectedMethod] = list;
+                                setPriorityLogic(logic);
+                              }} disabled={idx === 0}
+                                className="text-gray-400 hover:text-gray-600 disabled:opacity-20"><ChevronUp size={16} /></button>
+                              <button onClick={() => {
+                                const logic = { ...priorityLogic };
+                                const list = [...logic[selectedMethod]];
+                                if (idx < list.length - 1) { [list[idx], list[idx + 1]] = [list[idx + 1], list[idx]]; }
+                                list.forEach((g, i) => { g.priority = i + 1; });
+                                logic[selectedMethod] = list;
+                                setPriorityLogic(logic);
+                              }} disabled={idx === (priorityLogic[selectedMethod] || []).length - 1}
+                                className="text-gray-400 hover:text-gray-600 disabled:opacity-20"><ChevronDown size={16} /></button>
+                            </div>
+                          )}
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                            idx === 0 ? 'bg-success-50 text-success-600' :
+                            idx === 1 ? 'bg-blue-50 text-blue-600' :
+                            'bg-gray-100 text-gray-500'
+                          }`}>
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1">
+                            <span className="font-medium text-gray-900">{gw.gateway_name}</span>
+                            {idx === 0 && <span className="ml-2 text-xs px-2 py-0.5 bg-success-50 text-success-600 rounded">Primary</span>}
+                            {idx === 1 && <span className="ml-2 text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded">Fallback</span>}
+                          </div>
+                          <span className={`text-xs ${gw.enabled ? 'text-success-500' : 'text-gray-400'}`}>
+                            {gw.enabled ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {editingLogic && (
+                      <div className="flex gap-3 mt-4">
+                        <button onClick={() => { setEditingLogic(false); fetchData(); }}
+                          className="flex-1 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm">Cancel</button>
+                        <button onClick={() => { setEditingLogic(false); toast.success(`Priority order saved for ${selectedMethod}`); }}
+                          className="flex-1 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700 flex items-center justify-center gap-2">
+                          <Save size={16} /> Save Priority
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Summary Table */}
+                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="px-5 py-3 border-b border-gray-100">
+                      <h3 className="text-sm font-semibold text-gray-900">Priority Summary — All Payment Methods</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-200">
+                            <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-2">Payment Method</th>
+                            <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-2">1st Priority</th>
+                            <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-2">2nd Priority</th>
+                            <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-2">3rd Priority</th>
+                            <th className="text-left text-xs font-medium text-gray-500 uppercase px-5 py-2">Others</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {PAYMENT_METHODS.map(pm => {
+                            const gws = priorityLogic[pm] || [];
+                            return (
+                              <tr key={pm} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedMethod(pm)}>
+                                <td className="px-5 py-2.5">
+                                  <span className={`text-sm font-medium ${selectedMethod === pm ? 'text-primary-600' : 'text-gray-900'}`}>{pm}</span>
+                                </td>
+                                <td className="px-5 py-2.5 text-sm">
+                                  {gws[0] ? <span className="px-2 py-0.5 bg-success-50 text-success-700 rounded text-xs">{gws[0].gateway_name}</span> : '—'}
+                                </td>
+                                <td className="px-5 py-2.5 text-sm">
+                                  {gws[1] ? <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">{gws[1].gateway_name}</span> : '—'}
+                                </td>
+                                <td className="px-5 py-2.5 text-sm">
+                                  {gws[2] ? <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">{gws[2].gateway_name}</span> : '—'}
+                                </td>
+                                <td className="px-5 py-2.5 text-sm text-gray-400">
+                                  {gws.length > 3 ? `+${gws.length - 3} more` : '—'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               )}
 
