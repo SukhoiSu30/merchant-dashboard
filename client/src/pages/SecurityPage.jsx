@@ -86,7 +86,7 @@ export default function SecurityPage() {
     if (!verifyCode || verifyCode.length !== 6) return;
     setVerifyLoading(true);
     try {
-      await authAPI.enable2FA({ token: verifyCode });
+      await authAPI.enable2FA({ code: verifyCode });
       setTwoFA({ enabled: true });
       setSetupData(null);
       setVerifyCode('');
@@ -105,7 +105,7 @@ export default function SecurityPage() {
     if (!disableCode || disableCode.length !== 6) return;
     setDisableLoading(true);
     try {
-      await authAPI.disable2FA({ token: disableCode });
+      await authAPI.disable2FA({ code: disableCode });
       setTwoFA({ enabled: false });
       setDisableCode('');
       const stored = JSON.parse(localStorage.getItem('user') || '{}');
@@ -303,8 +303,8 @@ export default function SecurityPage() {
                     <div className="space-y-4">
                       <div className="bg-gray-50 rounded-lg p-4 text-center">
                         <p className="text-sm text-gray-600 mb-3">Scan this QR code with your authenticator app:</p>
-                        {setupData.qrCode && (
-                          <img src={setupData.qrCode} alt="2FA QR Code" className="mx-auto w-48 h-48 mb-3" />
+                        {(setupData.qrCodeUrl || setupData.qrCode) && (
+                          <img src={setupData.qrCodeUrl || setupData.qrCode} alt="2FA QR Code" className="mx-auto w-48 h-48 mb-3" />
                         )}
                         <p className="text-xs text-gray-500 mb-1">Or enter this key manually:</p>
                         <div className="flex items-center justify-center gap-2">
