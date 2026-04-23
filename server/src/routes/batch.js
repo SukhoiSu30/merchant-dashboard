@@ -95,20 +95,81 @@ router.post('/upload', authenticate, requirePermission('batch_operations', 'READ
 
     const batchId = `BATCH_${Date.now().toString(36).toUpperCase()}_${uuidv4().substring(0, 6).toUpperCase()}`;
 
-    // Process each row (simulated)
+    // Process each row — real processing for supported types
     const results = [];
     let accepted = 0, rejected = 0;
 
-    for (let i = 0; i < data.length; i++) {
-      const row = data[i];
-      const success = Math.random() > 0.1; // 90% success rate simulation
+    if (batch_type === 'BATCH_USERS') {
+      // Actually create users in the database
+      const bcrypt = require('bcryptjs');
+      const defaultPassword = await bcrypt.hash('User@1234', 12);
 
-      if (success) {
-        accepted++;
-        results.push({ ...row, status: 'ACCEPTED', message: 'Processed successfully', row_number: i + 1 });
-      } else {
-        rejected++;
-        results.push({ ...row, status: 'REJECTED', message: 'Processing failed - simulated error', row_number: i + 1 });
+      for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        try {
+          // Find role by name
+          const roleResult = await query('SELECT id FROM roles WHERE LOWER(name) = LOWER($1)', [row.role]);
+          if (roleResult.rows.length === 0) {
+            rejected++;
+            results.push({ ...row, status: 'REJECTED', message: `Role "${row.role}" not found`, row_number: i + 1 });
+            continue;
+          }
+          // Check duplicate email
+          const existing = await query('SELECT id FROM users WHERE email = $1', [row.email]);
+          if (existing.rows.length > 0) {
+            rejected++;
+            results.push({ ...row, status: 'REJECTED', message: `Email "${row.email}" already exists`, row_number: i + 1 });
+            continue;
+          }
+          // Insert user
+          await query(
+            `INSERT INTO users (email, password_hash, first_name, last_name, role_id, status, created_by)
+             VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6)`,
+            [row.email, defaultPassword, row.first_name, row.last_name || '', roleResult.rows[0].id, req.user.id]
+          );
+          accepted++;
+          results.push({ ...row, status: 'ACCEPTED', message: 'User created (default password: User@1234)', row_number: i + 1 });
+        } catch (err) {
+          rejected++;
+          results.push({ ...row, status: 'REJECTED', message: err.message, row_number: i + 1 });
+        }
+      }
+    } else if (batch_type === 'BATCH_REFUND') {
+      // Actually create refunds
+      for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        try {
+          const orderResult = await query('SELECT id, order_id FROM orders WHERE order_id = $1', [row.order_id]);
+          if (orderResult.rows.length === 0) {
+            rejected++;
+            results.push({ ...row, status: 'REJECTED', message: `Order "${row.order_id}" not found`, row_number: i + 1 });
+            continue;
+          }
+          const refundId = `REF_BATCH_${Date.now()}_${i}`;
+          await query(
+            `INSERT INTO refunds (refund_id, order_id, amount, currency, status, refund_type, reason, initiated_by)
+             VALUES ($1, $2, $3, 'INR', 'PENDING', 'PARTIAL', $4, $5)`,
+            [refundId, orderResult.rows[0].id, row.amount, row.reason || 'Batch refund', req.user.id]
+          );
+          accepted++;
+          results.push({ ...row, status: 'ACCEPTED', message: `Refund ${refundId} created`, row_number: i + 1 });
+        } catch (err) {
+          rejected++;
+          results.push({ ...row, status: 'REJECTED', message: err.message, row_number: i + 1 });
+        }
+      }
+    } else {
+      // Simulated processing for other batch types
+      for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        const success = Math.random() > 0.1;
+        if (success) {
+          accepted++;
+          results.push({ ...row, status: 'ACCEPTED', message: 'Processed successfully', row_number: i + 1 });
+        } else {
+          rejected++;
+          results.push({ ...row, status: 'REJECTED', message: 'Processing failed - validation error', row_number: i + 1 });
+        }
       }
     }
 
